@@ -18,11 +18,14 @@ Users can find their local IP address via:
 - The user manually enters the PC's local IP and pairing code.
 - The mobile app connects to `ws://HOST_IP:47777` and sends a `pairing_request`.
 - Scanning remains clearly separated from real pairing and does not fabricate desktops.
+- For a real Android phone, use the desktop app's **Recommended Host IP** from the same Wi-Fi network as the phone.
+- Avoid VirtualBox, VMware, WSL, Docker, vEthernet, Bluetooth, and other virtual adapter IPs for real phone pairing.
 
 ### 4. How PC approves the connection
 - When a mobile device attempts to connect with the correct code, a pending request appears on the Desktop app.
 - The desktop user must click Approve before the mobile app becomes connected.
 - Windows Firewall may ask for permission; allow access on private/local networks only.
+- If the phone cannot connect, try another detected LAN IP from the desktop list.
 
 ### 5. How Screen Switching works
 - RemoteLink supports multiple monitors.

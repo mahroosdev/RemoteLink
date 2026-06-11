@@ -62,6 +62,7 @@ export interface EngineState {
   serverStatus: ServerStatus
   hostIp: string
   hostIpCandidates: string[]
+  hostIpFallbacks: string[]
   port: number
   pairingCode: string
   pendingRequest: PendingPairingRequest | null
@@ -111,6 +112,7 @@ export class RemoteLinkServer {
     serverStatus: 'offline',
     hostIp: 'Local IP unavailable',
     hostIpCandidates: [],
+    hostIpFallbacks: [],
     port: REMOTELINK_WS_PORT,
     pairingCode: generatePairingCode(),
     pendingRequest: null,
@@ -133,8 +135,9 @@ export class RemoteLinkServer {
     this.state.serverStatus = 'starting'
     this.state.engineActive = false
     const localIps = detectLocalIPv4Candidates()
-    this.state.hostIpCandidates = localIps
-    this.state.hostIp = localIps[0] ?? 'Local IP unavailable'
+    this.state.hostIpCandidates = localIps.recommended
+    this.state.hostIpFallbacks = localIps.fallback
+    this.state.hostIp = localIps.recommended[0] ?? localIps.fallback[0] ?? 'Local IP unavailable'
     this.state.error = undefined
     this.state.pairingCode = generatePairingCode()
     this.addLog('Remote Engine starting on local network', 'System', 'Info', false)
@@ -144,7 +147,7 @@ export class RemoteLinkServer {
       if (typeof WebSocketServer !== 'function') {
         throw new Error('WebSocketServer constructor is unavailable from ws module')
       }
-      this.server = new WebSocketServer({ port: REMOTELINK_WS_PORT })
+      this.server = new WebSocketServer({ host: '0.0.0.0', port: REMOTELINK_WS_PORT })
       this.server.on('connection', (ws, request) => this.handleConnection(ws, request.socket.remoteAddress ?? 'Unknown'))
       await new Promise<void>((resolve, reject) => {
         const server = this.server
@@ -430,23 +433,26 @@ export class RemoteLinkServer {
 
 function detectLocalIPv4Candidates() {
   const networks = os.networkInterfaces()
-  const candidates: Array<{ address: string; score: number }> = []
+  const candidates: Array<{ address: string; score: number; virtual: boolean }> = []
   for (const [name, entries] of Object.entries(networks)) {
     const adapterName = name.toLowerCase()
     for (const entry of entries ?? []) {
       if (entry.family !== 'IPv4' || entry.internal || !isPrivateIPv4(entry.address)) continue
-      const virtualPenalty = /virtualbox|vmware|hyper-v|wsl|docker|loopback|bluetooth|vethernet|virtual|tap|npcap/i.test(adapterName) ? -100 : 0
+      const virtual = /virtualbox|vmware|hyper-v|wsl|docker|loopback|bluetooth|teredo|vethernet|virtual|tap|npcap/i.test(adapterName)
+      const virtualPenalty = virtual ? -100 : 0
       const lanScore = entry.address.startsWith('192.168.') ? 30
         : entry.address.startsWith('10.') ? 20
           : is172Private(entry.address) ? 10
             : 0
       const adapterScore = /wi-?fi|wireless|ethernet|lan/i.test(adapterName) ? 20 : 0
-      candidates.push({ address: entry.address, score: lanScore + adapterScore + virtualPenalty })
+      candidates.push({ address: entry.address, score: lanScore + adapterScore + virtualPenalty, virtual })
     }
   }
-  return candidates
+  const sorted = candidates
     .sort((a, b) => b.score - a.score || a.address.localeCompare(b.address))
-    .map((candidate) => candidate.address)
+  const recommended = sorted.filter((candidate) => !candidate.virtual).map((candidate) => candidate.address)
+  const fallback = sorted.filter((candidate) => candidate.virtual).map((candidate) => candidate.address)
+  return { recommended, fallback }
 }
 
 function normalizeIp(ip: string) {

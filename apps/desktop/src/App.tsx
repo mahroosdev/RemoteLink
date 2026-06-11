@@ -20,6 +20,7 @@ const fallbackEngineState: EngineState = {
   serverStatus: 'offline',
   hostIp: 'Local IP unavailable',
   hostIpCandidates: [],
+  hostIpFallbacks: [],
   port: 47777,
   pairingCode: '------',
   pendingRequest: null,
@@ -35,6 +36,7 @@ function App() {
 
   // App State
   const [engineState, setEngineState] = useState<EngineState>(fallbackEngineState);
+  const [selectedHostIp, setSelectedHostIp] = useState<string | null>(null);
   const [pairingExpiry] = useState(60);
   const [trustedDevices, setTrustedDevices] = useState<DeviceInfo[]>([]);
   const [previewActive, setPreviewActive] = useState(false);
@@ -79,10 +81,14 @@ function App() {
   }, []);
 
   const connectedDevice = engineState.connectedDevice ?? mockConnectedDevice;
+  const allHostIps = [...engineState.hostIpCandidates, ...engineState.hostIpFallbacks];
+  const displayHostIp = selectedHostIp && allHostIps.includes(selectedHostIp)
+    ? selectedHostIp
+    : engineState.hostIp;
   const logs = engineState.activityLog;
   const monitors = engineState.detectedMonitors;
   const engineActive = engineState.engineActive;
-  const localIP = engineState.hostIp;
+  const localIP = displayHostIp;
   const pairingCode = engineState.pairingCode;
 
   // Actions
@@ -156,6 +162,10 @@ function App() {
       case 'MOBILE_CMD':
         addLog(`Input: ${payload}`, 'Mobile');
         break;
+      case 'SELECT_HOST_IP':
+        setSelectedHostIp(payload);
+        addLog(`Host IP selected: ${payload}`, 'System');
+        break;
       case 'ROTATE_MOBILE':
         setMobileRotation(prev => (prev === 0 ? 90 : 0));
         addLog(`Device Orientation: ${mobileRotation === 0 ? 'Landscape' : 'Portrait'}`, 'Mobile');
@@ -200,6 +210,8 @@ function App() {
         logs, monitors, settings, engineActive, previewActive, mobileRotation,
         serverStatus: engineState.serverStatus, port: engineState.port,
         hostIpCandidates: engineState.hostIpCandidates,
+        hostIpFallbacks: engineState.hostIpFallbacks,
+        selectedHostIp: localIP,
         pendingRequest: engineState.pendingRequest, engineError: engineState.error,
       }, 
       onAction, settingsTab, setSettingsTab, updateSettings 

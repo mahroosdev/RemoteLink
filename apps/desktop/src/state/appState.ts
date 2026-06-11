@@ -43,6 +43,7 @@ export interface EngineState {
   serverStatus: 'offline' | 'starting' | 'listening' | 'error';
   hostIp: string;
   hostIpCandidates: string[];
+  hostIpFallbacks: string[];
   port: number;
   pairingCode: string;
   pendingRequest: PendingPairingRequest | null;

@@ -12,7 +12,7 @@ class ManualScreen extends StatelessWidget {
           _ManualSection(
             title: 'Connect to PC',
             content: 'Ensure your phone and PC are on the same Wi‑Fi SSID. Enter the Host IP and Pairing Code into the Connect screen. '
-                'The mobile app connects to ws://HOST_IP:47777 and waits for approval on the desktop. Scanning remains separate and never invents a desktop.',
+                'Use the Recommended Host IP from the desktop app. The mobile app connects to ws://HOST_IP:47777 and waits for approval on the desktop. Scanning remains separate and never invents a desktop.',
           ),
           _ManualSection(
             title: 'Find PC IP',
@@ -29,6 +29,8 @@ class ManualScreen extends StatelessWidget {
                      '• Network Mismatch: Ensure devices are on the same Wi‑Fi SSID.\n'
                      '• Engine Stopped: Ensure the "START ENGINE" button on PC is clicked.\n'
                      '• Firewall: Allow RemoteLink on private/local networks if Windows Firewall prompts.\n'
+                     '• Wrong adapter: Do not use VirtualBox, VMware, WSL, Docker, vEthernet, or Bluetooth IPs for real phone pairing.\n'
+                     '• Multiple IPs: Try another detected LAN IP shown in the desktop app.\n'
                      '• Shortcuts stuck: Tap "Release All Keys" on the Remote screen to clear held modifiers.\n'
                      '• Touchpad too sensitive: Lower the Mouse Speed slider in mobile settings.',
           ),

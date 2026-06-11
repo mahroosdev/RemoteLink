@@ -191,7 +191,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                     decoration: const InputDecoration(
                       labelText: 'PC Host IP',
                       hintText: 'Enter PC Host IP',
-                      helperText: 'Start the desktop app and use the Host IP shown there.',
+                      helperText: 'Use the Recommended Host IP from the desktop app. If the phone cannot connect, try another detected LAN IP.',
                       helperMaxLines: 2,
                       prefixIcon: Icon(Icons.wifi, size: 20),
                     ),

@@ -61,8 +61,26 @@ const PairingDevicesPage = ({ state, onAction }: any) => {
          </div>
       </Card>
 
+      <Card className="col-8" title="Phone Pairing Steps" icon={Wifi}>
+         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '14px' }}>
+            {[
+              'Start Remote Engine.',
+              'Keep phone and PC on the same Wi-Fi.',
+              'Enter the Recommended Host IP and Pairing Code on mobile.',
+              'Approve the request on this PC.',
+              'Allow RemoteLink Pro / Node / Electron through Windows Firewall on Private networks.',
+              'If the phone cannot connect, try another detected LAN IP and avoid VirtualBox/VMware/WSL/Docker addresses.',
+            ].map((text, index) => (
+              <div key={text} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', color: 'var(--text-secondary)', fontSize: '13px', lineHeight: 1.5 }}>
+                <span style={{ color: 'var(--accent-blue)', fontWeight: 700 }}>{index + 1}</span>
+                <span>{text}</span>
+              </div>
+            ))}
+         </div>
+      </Card>
+
       {/* Device Whitelist */}
-      <Card className="col-8" title="Authorized Hardware Whitelist" icon={ShieldCheck}>
+      <Card className="col-12" title="Authorized Hardware Whitelist" icon={ShieldCheck}>
          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {state.trustedDevices.length > 0 ? state.trustedDevices.map((d: any) => (
               <div key={d.ip} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', background: 'var(--bg-main)', borderRadius: '16px', border: '1px solid var(--border-subtle)' }}>

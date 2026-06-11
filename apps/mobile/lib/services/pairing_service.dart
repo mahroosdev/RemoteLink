@@ -43,13 +43,15 @@ class PairingService {
   Future<void> connect(String hostIp, String pairingCode) async {
     await disconnect(sendMessage: false);
     final uri = Uri.parse('ws://$hostIp:$remoteLinkWsPort');
+    final failureMessage =
+        'Cannot reach PC at $uri. Check desktop engine is ON, phone and PC are on the same Wi-Fi, Windows Firewall allows Private network access, and try another Host IP shown in the desktop app.';
     try {
       _channel = WebSocketChannel.connect(uri);
       _subscription = _channel!.stream.listen(
         _handleMessage,
-        onError: (_) => _events.add(const PairingEvent(
+        onError: (_) => _events.add(PairingEvent(
           MessageTypes.error,
-          message: 'Could not connect. Start Remote Engine on desktop and check Host IP.',
+          message: failureMessage,
         )),
         onDone: () => _events.add(const PairingEvent(MessageTypes.disconnect, message: 'Connection closed by desktop')),
       );
@@ -64,9 +66,9 @@ class PairingService {
         },
       ));
     } catch (error) {
-      _events.add(const PairingEvent(
+      _events.add(PairingEvent(
         MessageTypes.error,
-        message: 'Could not connect. Start Remote Engine on desktop and check Host IP.',
+        message: failureMessage,
       ));
     }
   }
