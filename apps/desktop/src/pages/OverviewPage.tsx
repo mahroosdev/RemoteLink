@@ -1,0 +1,122 @@
+import React from 'react';
+import { Smartphone, Monitor, Activity, ShieldCheck, Copy, RefreshCw, ArrowRight } from 'lucide-react';
+import { Card, StatusPill, Button } from '../components/Common';
+
+const OverviewPage = ({ state, onAction }: any) => {
+  const isConnected = state.engineActive && state.connectedDevice.status === 'Connected';
+  const isListening = state.engineActive && state.connectedDevice.status !== 'Connected';
+
+  return (
+    <div className="grid">
+      {/* System Status Card */}
+      <Card className="col-8" title="Connection Interface" icon={Activity}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+            <div style={{ 
+              width: '100px', height: '100px', background: 'var(--bg-sidebar)', borderRadius: '24px', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+              border: '1px solid var(--border-subtle)'
+            }}>
+              <Smartphone size={48} strokeWidth={1.5} color={isConnected ? 'var(--text-primary)' : 'var(--text-muted)'} />
+              {isConnected && <div className="status-dot" style={{ width: '20px', height: '20px', bottom: '-4px', right: '-4px' }}></div>}
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '8px' }}>
+                <h4 style={{ margin: 0, fontSize: '22px', fontWeight: 500 }}>
+                  {!state.engineActive ? 'Engine Offline' : isConnected ? state.connectedDevice.name : 'Listening for Handshake'}
+                </h4>
+                <StatusPill 
+                  label={!state.engineActive ? 'STOPPED' : isConnected ? 'CONNECTED' : 'WAITING'} 
+                  type={!state.engineActive ? 'info' : isConnected ? 'success' : 'warning'} 
+                />
+              </div>
+              <p className="text-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
+                <ShieldCheck size={16} color={isConnected ? 'var(--accent-green)' : 'var(--text-muted)'} />
+                {isConnected ? 'Secure Encrypted P2P Session Active' : 'Waiting for pairing request from mobile app'}
+              </p>
+            </div>
+          </div>
+          
+          <div style={{ display: 'flex', gap: '12px' }}>
+             {isConnected ? (
+               <Button variant="danger" onClick={() => onAction('DISCONNECT')}>Disconnect</Button>
+             ) : (
+               <Button onClick={() => onAction('NAV', 'Pairing')}>Pairing Hub <ArrowRight size={14} /></Button>
+             )}
+          </div>
+        </div>
+      </Card>
+
+      {/* Handshake Details */}
+      <Card className="col-4" title="Handshake Details">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+           <div style={{ padding: '16px 20px', background: 'var(--bg-sidebar)', borderRadius: '16px', border: '1px solid var(--border-subtle)' }}>
+              <p className="text-muted" style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '1px' }}>Pairing Code</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                 <code style={{ fontSize: '22px', fontWeight: 600, color: 'var(--accent-blue)', fontFamily: 'JetBrains Mono, monospace' }}>{state.pairingCode}</code>
+                 <div style={{ display: 'flex', gap: '12px' }}>
+                    <RefreshCw size={16} className="text-muted" style={{ cursor: 'pointer' }} onClick={() => onAction('REGEN_CODE')} />
+                    <Copy size={16} className="text-muted" style={{ cursor: 'pointer' }} />
+                 </div>
+              </div>
+           </div>
+           <div style={{ padding: '16px 20px', background: 'var(--bg-sidebar)', borderRadius: '16px', border: '1px solid var(--border-subtle)' }}>
+              <p className="text-muted" style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '1px' }}>Local Host Address</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                 <code style={{ fontSize: '15px', fontWeight: 700, fontFamily: 'monospace' }}>{state.localIP}</code>
+                 <Copy size={16} className="text-muted" style={{ cursor: 'pointer' }} />
+              </div>
+           </div>
+        </div>
+      </Card>
+
+      {/* Display Summary */}
+      <Card className="col-4" title="Broadcasting" icon={Monitor}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {state.monitors.filter((m:any) => m.isActive).map((m: any) => (
+            <div key={m.id}>
+               <p style={{ fontSize: '15px', fontWeight: 500, marginBottom: '6px' }}>{m.name}</p>
+               <p className="text-secondary" style={{ fontSize: '13px' }}>{m.resolution} @ {m.refreshRate}</p>
+            </div>
+          ))}
+          <div style={{ borderTop: '1px solid var(--border-subtle)', marginTop: '8px', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+             <span className="text-muted">Available Monitors</span>
+             <span style={{ fontWeight: 600, fontSize: '14px' }}>{state.monitors.length}</span>
+          </div>
+        </div>
+      </Card>
+
+      {/* Performance Summary */}
+      <Card className="col-4" title="Metrics">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span className="text-secondary">Network Latency</span> 
+              <span style={{ fontWeight: 600, color: isConnected ? 'var(--accent-green)' : 'var(--text-muted)' }}>{isConnected ? '12ms' : '--'}</span>
+           </div>
+           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span className="text-secondary">Stream Bitrate</span> 
+              <span style={{ fontWeight: 600 }}>{isConnected ? '4.8 Mbps' : '0.0 Mbps'}</span>
+           </div>
+           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span className="text-secondary">Encoder FPS</span> 
+              <span style={{ fontWeight: 600 }}>{isConnected ? '60' : '0'}</span>
+           </div>
+        </div>
+      </Card>
+
+      {/* Activity Pipeline */}
+      <Card className="col-4" title="Event Stream">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {state.logs.slice(0, 4).map((l: any) => (
+            <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+              <span style={{ color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}>{l.event}</span>
+              <span className="text-muted" style={{ fontSize: '11px' }}>{l.timestamp}</span>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+export default OverviewPage;

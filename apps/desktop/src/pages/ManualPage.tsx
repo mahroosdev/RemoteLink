@@ -1,0 +1,92 @@
+import React from 'react';
+import { BookOpen, HelpCircle, ShieldCheck, Globe, Zap, Wifi, AlertTriangle, Keyboard } from 'lucide-react';
+import { Card } from '../components/Common';
+
+const ManualPage = () => (
+  <div className="grid">
+     <div className="col-12">
+        <h2 style={{ fontSize: '22px', marginBottom: '8px' }}>User Manual</h2>
+        <p className="text-muted" style={{ marginBottom: '32px' }}>Comprehensive guide for RemoteLink Pro Utility.</p>
+     </div>
+
+     <div className="col-8">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+           <section>
+              <h3 style={{ fontSize: '18px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}><Wifi size={18} /> Getting Started</h3>
+              <p className="text-secondary" style={{ lineHeight: 1.6 }}>
+                 RemoteLink Pro establishes a secure P2P tunnel over your local network. 
+                 To begin, start the Remote Engine in the header. This enables the local broadcast module 
+                 and starts listening for pairing requests from your Android device.
+              </p>
+           </section>
+
+           <section>
+              <h3 style={{ fontSize: '18px', marginBottom: '16px' }}>Connection Workflow</h3>
+              <div className="grid">
+                 <div className="col-6">
+                    <h4 style={{ fontSize: '14px', marginBottom: '8px' }}>1. Locate PC IP</h4>
+                    <p className="text-muted" style={{ fontSize: '13px' }}>Your desktop app will show your actual Host IP in the header when local detection is enabled. The mobile app needs this to find the PC. (Example format: 192.168.0.24)</p>
+                 </div>
+                 <div className="col-6">
+                    <h4 style={{ fontSize: '14px', marginBottom: '8px' }}>2. Pairing Code</h4>
+                    <p className="text-muted" style={{ fontSize: '13px' }}>A 6-digit random code is generated for every session. Enter this on mobile to initiate the handshake.</p>
+                 </div>
+              </div>
+           </section>
+
+           <section>
+              <h3 style={{ fontSize: '18px', marginBottom: '16px' }}>Interactive Controls</h3>
+              <p className="text-secondary" style={{ lineHeight: 1.6, marginBottom: '16px' }}>
+                 Once connected, your phone screen becomes a high-precision trackpad. 
+                 Taps and swipes are translated into OS-level mouse and gesture events.
+              </p>
+              <div style={{ padding: '20px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+                 <h4 style={{ fontSize: '14px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}><Zap size={14} color="var(--accent-amber)" /> Sticky Modifiers</h4>
+                 <p className="text-muted" style={{ fontSize: '13px', margin: 0 }}>
+                    Long-press Ctrl, Alt, or Shift on mobile to keep them "held" on the PC. 
+                    This allows for shortcuts like Ctrl+V without needing multiple fingers on the phone. 
+                    Use "Release All Keys" if a modifier stays active.
+                 </p>
+              </div>
+           </section>
+
+           <section>
+              <h3 style={{ fontSize: '18px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}><ShieldCheck size={18} color="var(--accent-green)" /> Privacy & Security</h3>
+              <p className="text-secondary" style={{ lineHeight: 1.6 }}>
+                 This utility strictly prohibits background or hidden access. Every connection attempt 
+                 requires physical approval on this PC screen. An active session indicator is 
+                 always visible while a remote device is controlling your cursor.
+              </p>
+           </section>
+        </div>
+     </div>
+
+     <div className="col-4">
+        <Card title="Troubleshooting" icon={HelpCircle}>
+           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div>
+                 <h4 style={{ fontSize: '13px', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}><AlertTriangle size={14} color="var(--accent-amber)" /> Device not found</h4>
+                 <p className="text-muted" style={{ fontSize: '12px' }}>Ensure both devices are on the same Wi-Fi SSID and AP Isolation is disabled in router settings.</p>
+              </div>
+              <div>
+                 <h4 style={{ fontSize: '13px', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}><Zap size={14} color="var(--accent-amber)" /> High Latency</h4>
+                 <p className="text-muted" style={{ fontSize: '12px' }}>Switch to a 5GHz Wi-Fi band or connect the PC via Ethernet to reduce jitter.</p>
+              </div>
+              <div>
+                 <h4 style={{ fontSize: '13px', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}><Keyboard size={14} color="var(--accent-amber)" /> Stuck Modifiers</h4>
+                 <p className="text-muted" style={{ fontSize: '12px' }}>If keys remain "held", go to Settings &gt; Shortcut Keys and click "Release All Virtual Keys".</p>
+              </div>
+           </div>
+        </Card>
+
+        <div style={{ marginTop: '24px', padding: '24px', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '16px', border: '1px solid rgba(59, 130, 246, 0.1)' }}>
+           <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '8px' }}><Globe size={16} /> Worldwide Access</h4>
+           <p className="text-muted" style={{ fontSize: '12px', margin: 0 }}>
+              Future updates will introduce E2EE Cloud Relay for remote access via LTE/4G from any location.
+           </p>
+        </div>
+     </div>
+  </div>
+);
+
+export default ManualPage;

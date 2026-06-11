@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+.DS_Store
+
+# Build Outputs
+dist/
+build/
+bin/
+*.exe
+*.app
+
+# Flutter specific
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo

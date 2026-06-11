@@ -1,0 +1,1 @@
+"use strict";const t=require("electron");t.contextBridge.exposeInMainWorld("electronAPI",{getDesktopSources:()=>t.ipcRenderer.invoke("get-desktop-sources")});window.addEventListener("DOMContentLoaded",()=>{const n=(e,r)=>{const o=document.getElementById(e);o&&(o.innerText=r)};for(const e of["chrome","node","electron"])n(`${e}-version`,process.versions[e])});

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mobile-web",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5179", "--directory", "apps/mobile/build/web"],
+      "port": 5179
+    },
+    {
+      "name": "desktop-web",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5180", "--directory", "apps/desktop/dist"],
+      "port": 5180
+    }
+  ]
+}
