@@ -1,6 +1,7 @@
 import os from 'node:os'
 import crypto from 'node:crypto'
 import { createRequire } from 'node:module'
+import { execFileSync } from 'node:child_process'
 import type { WebSocket as WebSocketType, WebSocketServer as WebSocketServerType } from 'ws'
 import {
   MessageType,
@@ -270,6 +271,12 @@ export class RemoteLinkServer {
     return this.getState()
   }
 
+  clearActivityLog() {
+    this.state.activityLog = []
+    this.emit()
+    return this.getState()
+  }
+
   private handleConnection(ws: WebSocketType, rawIp: string) {
     const ip = normalizeIp(rawIp)
     if (!this.state.engineActive || this.state.serverStatus !== 'listening') {
@@ -432,13 +439,18 @@ export class RemoteLinkServer {
 }
 
 function detectLocalIPv4Candidates() {
+  if (process.platform === 'win32') {
+    const windowsCandidates = detectWindowsIPv4Candidates()
+    if (windowsCandidates.recommended.length > 0 || windowsCandidates.fallback.length > 0) return windowsCandidates
+  }
+
   const networks = os.networkInterfaces()
   const candidates: Array<{ address: string; score: number; virtual: boolean }> = []
   for (const [name, entries] of Object.entries(networks)) {
     const adapterName = name.toLowerCase()
     for (const entry of entries ?? []) {
       if (entry.family !== 'IPv4' || entry.internal || !isPrivateIPv4(entry.address)) continue
-      const virtual = /virtualbox|vmware|hyper-v|wsl|docker|loopback|bluetooth|teredo|vethernet|virtual|tap|npcap/i.test(adapterName)
+      const virtual = isVirtualAdapter(adapterName)
       const virtualPenalty = virtual ? -100 : 0
       const lanScore = entry.address.startsWith('192.168.') ? 30
         : entry.address.startsWith('10.') ? 20
@@ -455,6 +467,59 @@ function detectLocalIPv4Candidates() {
   return { recommended, fallback }
 }
 
+function detectWindowsIPv4Candidates() {
+  try {
+    const script = [
+      '$items = Get-NetIPConfiguration | ForEach-Object {',
+      '  $ip = $_.IPv4Address.IPAddress | Select-Object -First 1',
+      '  if ($ip) {',
+      '    [PSCustomObject]@{',
+      '      Address = $ip',
+      '      Alias = $_.InterfaceAlias',
+      '      Description = $_.InterfaceDescription',
+      '      HasGateway = [bool]$_.IPv4DefaultGateway',
+      '      Status = (Get-NetAdapter -InterfaceIndex $_.InterfaceIndex -ErrorAction SilentlyContinue).Status',
+      '    }',
+      '  }',
+      '}',
+      '$items | ConvertTo-Json -Compress',
+    ].join('\n')
+    const raw = execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], {
+      encoding: 'utf8',
+      timeout: 3000,
+      windowsHide: true,
+    }).trim()
+    if (!raw) return { recommended: [], fallback: [] }
+
+    const parsed = JSON.parse(raw)
+    const rows = Array.isArray(parsed) ? parsed : [parsed]
+    const candidates = rows
+      .map((row: any) => {
+        const address = String(row.Address ?? '')
+        const adapterText = `${row.Alias ?? ''} ${row.Description ?? ''}`.toLowerCase()
+        const status = String(row.Status ?? '').toLowerCase()
+        const virtual = isVirtualAdapter(adapterText)
+        const hasGateway = row.HasGateway === true
+        const lanScore = address.startsWith('192.168.') ? 30 : address.startsWith('10.') ? 25 : is172Private(address) ? 20 : 0
+        const adapterScore = /wi-?fi|wireless|ethernet|lan|hotspot/i.test(adapterText) ? 25 : 0
+        const gatewayScore = hasGateway ? 100 : 0
+        const activeScore = status === 'up' ? 20 : 0
+        const virtualPenalty = virtual ? -200 : 0
+        return { address, virtual, score: gatewayScore + activeScore + adapterScore + lanScore + virtualPenalty }
+      })
+      .filter((candidate) => isPrivateIPv4(candidate.address))
+      .sort((a, b) => b.score - a.score || a.address.localeCompare(b.address))
+
+    return {
+      recommended: candidates.filter((candidate) => !candidate.virtual).map((candidate) => candidate.address),
+      fallback: candidates.filter((candidate) => candidate.virtual).map((candidate) => candidate.address),
+    }
+  } catch (error) {
+    console.warn('[RemoteLink] Falling back to Node network interface IP detection:', error)
+    return { recommended: [], fallback: [] }
+  }
+}
+
 function normalizeIp(ip: string) {
   return ip.startsWith('::ffff:') ? ip.slice(7) : ip
 }
@@ -465,6 +530,10 @@ function generatePairingCode() {
 
 function isPrivateIPv4(address: string) {
   return address.startsWith('10.') || address.startsWith('192.168.') || is172Private(address)
+}
+
+function isVirtualAdapter(adapterName: string) {
+  return /virtualbox|vmware|hyper-v|wsl|docker|loopback|bluetooth|teredo|vethernet|virtual|tap|npcap/i.test(adapterName)
 }
 
 function is172Private(address: string) {

@@ -33,6 +33,7 @@ class PairingEvent {
 class PairingService {
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;
+  Timer? _connectTimeout;
   final _events = StreamController<PairingEvent>.broadcast();
   final String deviceId = _createDeviceId();
   String? _sessionId;
@@ -55,6 +56,13 @@ class PairingService {
         )),
         onDone: () => _events.add(const PairingEvent(MessageTypes.disconnect, message: 'Connection closed by desktop')),
       );
+      _connectTimeout = Timer(const Duration(seconds: 9), () {
+        _events.add(const PairingEvent(
+          MessageTypes.error,
+          message: 'Connection failed. Check Host IP, desktop engine, firewall, and same Wi-Fi/hotspot.',
+        ));
+        disconnect(sendMessage: false);
+      });
       _send(remoteLinkMessage(
         type: MessageTypes.pairingRequest,
         deviceId: deviceId,
@@ -96,8 +104,10 @@ class PairingService {
       ));
     }
     await _subscription?.cancel();
+    _connectTimeout?.cancel();
     await _channel?.sink.close();
     _subscription = null;
+    _connectTimeout = null;
     _channel = null;
     _sessionId = null;
   }
@@ -117,9 +127,13 @@ class PairingService {
 
     switch (type) {
       case MessageTypes.pairingPending:
+        _connectTimeout?.cancel();
+        _connectTimeout = null;
         _events.add(const PairingEvent(MessageTypes.pairingPending, message: 'Waiting for PC approval'));
         break;
       case MessageTypes.pairingApproved:
+        _connectTimeout?.cancel();
+        _connectTimeout = null;
         _sessionId = payload['sessionId']?.toString() ?? decoded['sessionId']?.toString();
         final monitors = _readMonitors(payload['detectedMonitors']);
         _events.add(PairingEvent(MessageTypes.pairingApproved, sessionId: _sessionId, monitors: monitors));

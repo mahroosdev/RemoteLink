@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('remotelink', {
   approvePairing: () => ipcRenderer.invoke('remotelink:approve-pairing'),
   denyPairing: () => ipcRenderer.invoke('remotelink:deny-pairing'),
   disconnectDevice: () => ipcRenderer.invoke('remotelink:disconnect-device'),
+  clearActivityLog: () => ipcRenderer.invoke('remotelink:clear-activity-log'),
   copyText: (text: string) => ipcRenderer.invoke('remotelink:copy-text', text),
   onEngineStateChanged: (callback: (state: unknown) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, state: unknown) => callback(state)

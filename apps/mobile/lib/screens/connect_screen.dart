@@ -181,7 +181,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
       children: [
         const AppLogo(size: 80),
         const SizedBox(height: 24),
-        Text('RemoteLink Pro', style: Theme.of(context).textTheme.headlineLarge),
+        Text('Remote Link', style: Theme.of(context).textTheme.headlineLarge),
         Text('Enterprise Remote Utility', style: Theme.of(context).textTheme.labelSmall),
         const SizedBox(height: 40),
 

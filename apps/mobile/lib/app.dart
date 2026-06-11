@@ -30,7 +30,7 @@ class _RemoteLinkAppState extends State<RemoteLinkApp> {
     return ValueListenableBuilder<String>(
       valueListenable: _state.themeMode,
       builder: (context, mode, _) => MaterialApp(
-        title: 'RemoteLink Pro',
+        title: 'Remote Link',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.themeFor(mode),
         // Portrait: bottom navigation. Landscape: compact side rail so the

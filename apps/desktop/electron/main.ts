@@ -59,6 +59,7 @@ ipcMain.handle('remotelink:regenerate-pairing-code', () => remoteLinkServer.rege
 ipcMain.handle('remotelink:approve-pairing', () => remoteLinkServer.approvePairing())
 ipcMain.handle('remotelink:deny-pairing', () => remoteLinkServer.denyPairing())
 ipcMain.handle('remotelink:disconnect-device', () => remoteLinkServer.disconnectDevice())
+ipcMain.handle('remotelink:clear-activity-log', () => remoteLinkServer.clearActivityLog())
 ipcMain.handle('remotelink:copy-text', (_event, text: string) => {
   if (typeof text !== 'string') throw new Error('Copy text must be a string')
   clipboard.writeText(text)

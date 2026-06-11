@@ -7,7 +7,7 @@ class ManualScreen extends StatelessWidget {
   static const List<Widget> _sections = [
           _ManualSection(
             title: 'Getting Started',
-            content: 'RemoteLink Pro pairs your Android device with your PC over your local network. Start the desktop Remote Engine to begin.',
+            content: 'Remote Link pairs your Android device with your PC over your local network. Start the desktop Remote Engine to begin.',
           ),
           _ManualSection(
             title: 'Connect to PC',
@@ -16,7 +16,7 @@ class ManualScreen extends StatelessWidget {
           ),
           _ManualSection(
             title: 'Find PC IP',
-            content: 'Open the RemoteLink Pro desktop app — it will show your actual Host IP in the top header. (Example only: 192.168.0.24)',
+            content: 'Open the Remote Link desktop app — it will show your actual Host IP in the top header. (Example only: 192.168.0.24)',
           ),
           _ManualSection(
             title: 'Pairing Code',
@@ -52,7 +52,7 @@ class ManualScreen extends StatelessWidget {
           ),
           _ManualSection(
             title: 'Security Rules',
-            content: 'RemoteLink Pro never allows hidden access. Every connection requires physical approval on the host PC screen.',
+            content: 'Remote Link never allows hidden access. Every connection requires physical approval on the host PC screen. This version logs commands only; real control and streaming are later phases.',
           ),
   ];
 

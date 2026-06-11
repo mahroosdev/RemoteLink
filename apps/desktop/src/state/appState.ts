@@ -125,6 +125,7 @@ declare global {
       approvePairing: () => Promise<EngineState>;
       denyPairing: () => Promise<EngineState>;
       disconnectDevice: () => Promise<EngineState>;
+      clearActivityLog: () => Promise<EngineState>;
       copyText: (text: string) => Promise<{ ok: boolean }>;
       onEngineStateChanged: (callback: (state: EngineState) => void) => () => void;
     };

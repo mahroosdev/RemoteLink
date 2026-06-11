@@ -55,3 +55,8 @@ Messages are exchanged as JSON objects over WebSockets.
 ```
 
 Phase 1 command messages are logged by the desktop only. They do not execute OS input.
+
+## Play Store Release Prep
+
+For Play Store release, create a private upload keystore outside the repo and build an AAB with `flutter build appbundle --release`. Do not commit signing keys, passwords, or Play Console secrets.
+Android cleartext traffic is intentionally enabled for local `ws://HOST_IP:47777` LAN pairing.

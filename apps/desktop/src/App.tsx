@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
+import GlobalPairingRequest from './components/GlobalPairingRequest';
 
 // Pages
 import OverviewPage from './pages/OverviewPage';
@@ -171,8 +172,7 @@ function App() {
         addLog(`Device Orientation: ${mobileRotation === 0 ? 'Landscape' : 'Portrait'}`, 'Mobile');
         break;
       case 'CLEAR_LOG':
-        setEngineState(prev => ({ ...prev, activityLog: [] }));
-        addLog('Diagnostic history cleared', 'System');
+        applyEngineAction(window.remotelink.clearActivityLog());
         break;
       case 'REMOVE_TRUSTED':
         setTrustedDevices(prev => prev.filter(d => d.ip !== payload));
@@ -247,6 +247,11 @@ function App() {
           onRefresh={() => onAction('REGEN_CODE')} 
         />
         <main className="scroll-area">
+          <GlobalPairingRequest
+            request={engineState.pendingRequest}
+            onApprove={() => onAction('APPROVE')}
+            onDeny={() => onAction('DENY')}
+          />
           {renderCurrentPage()}
         </main>
       </div>
