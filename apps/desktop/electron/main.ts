@@ -1,11 +1,18 @@
-import { app, BrowserWindow, ipcMain, desktopCapturer } from 'electron'
+import { app, BrowserWindow, ipcMain, desktopCapturer, clipboard } from 'electron'
 import path from 'node:path'
+import { RemoteLinkServer } from './remotelinkServer'
 
 // The built directory structure
 process.env.DIST = path.join(__dirname, '../dist')
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.env.DIST, '../public')
 
 let win: BrowserWindow | null
+
+const remoteLinkServer = new RemoteLinkServer((state) => {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    window.webContents.send('remotelink:state-changed', state)
+  })
+})
 
 function createWindow() {
   win = new BrowserWindow({
@@ -45,7 +52,21 @@ ipcMain.handle('get-desktop-sources', async () => {
   }))
 })
 
+ipcMain.handle('remotelink:get-engine-state', () => remoteLinkServer.getState())
+ipcMain.handle('remotelink:start-engine', () => remoteLinkServer.startEngine())
+ipcMain.handle('remotelink:stop-engine', () => remoteLinkServer.stopEngine())
+ipcMain.handle('remotelink:regenerate-pairing-code', () => remoteLinkServer.regeneratePairingCode())
+ipcMain.handle('remotelink:approve-pairing', () => remoteLinkServer.approvePairing())
+ipcMain.handle('remotelink:deny-pairing', () => remoteLinkServer.denyPairing())
+ipcMain.handle('remotelink:disconnect-device', () => remoteLinkServer.disconnectDevice())
+ipcMain.handle('remotelink:copy-text', (_event, text: string) => {
+  if (typeof text !== 'string') throw new Error('Copy text must be a string')
+  clipboard.writeText(text)
+  return { ok: true }
+})
+
 app.on('window-all-closed', () => {
+  remoteLinkServer.stopEngine()
   if (process.platform !== 'darwin') {
     app.quit()
     win = null

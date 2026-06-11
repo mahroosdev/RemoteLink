@@ -1,13 +1,10 @@
-import React, { useState } from 'react';
-import { Smartphone, ShieldCheck, ShieldAlert, Wifi, Info, ShieldOff, Trash2 } from 'lucide-react';
+import React from 'react';
+import { Smartphone, ShieldCheck, ShieldAlert, Wifi, Info, ShieldOff } from 'lucide-react';
 import { Card, StatusPill, Button } from '../components/Common';
 
 const PairingDevicesPage = ({ state, onAction }: any) => {
-  // No fake incoming requests: a request card appears only when the user
-  // explicitly simulates one (demo) — until real pairing is implemented.
-  const [demoRequest, setDemoRequest] = useState(false);
-  const canSimulate = state.engineActive && state.connectedDevice.status === 'Disconnected';
-  const hasRequest = canSimulate && demoRequest;
+  const hasRealRequest = Boolean(state.pendingRequest);
+  const request = state.pendingRequest;
 
   return (
     <div className="grid">
@@ -19,21 +16,23 @@ const PairingDevicesPage = ({ state, onAction }: any) => {
 
       {/* Active Request Card */}
       <Card className="col-12" title="Pending Authorization" icon={Wifi}>
-         {hasRequest ? (
+         {hasRealRequest && request ? (
            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)', padding: '24px', borderRadius: '16px', border: '1px solid var(--accent-amber)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                  <div className="logo-container" style={{ width: '64px', height: '64px', borderRadius: '16px', background: 'var(--bg-sidebar)', border: '1px solid var(--border-subtle)' }}>
                     <Smartphone size={32} strokeWidth={1.5} />
                  </div>
                  <div>
-                    <h4 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: 600 }}>Demo Android Device (Incoming)</h4>
-                    <p className="text-muted" style={{ margin: 0, fontSize: '14px' }}>IP Request from <code style={{ color: 'var(--text-primary)' }}>192.168.0.102</code></p>
-                    <p className="text-muted" style={{ margin: '4px 0 0 0', fontSize: '12px' }}>Demo request for UI testing only</p>
+                    <h4 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: 600 }}>{request.deviceName}</h4>
+                    <p className="text-muted" style={{ margin: 0, fontSize: '14px' }}>IP Request from <code style={{ color: 'var(--text-primary)' }}>{request.ip}</code></p>
+                    <p className="text-muted" style={{ margin: '4px 0 0 0', fontSize: '12px' }}>
+                      RemoteLink Mobile {request.appVersion}
+                    </p>
                  </div>
               </div>
               <div style={{ display: 'flex', gap: '12px' }}>
-                 <Button variant="primary" style={{ padding: '12px 32px' }} onClick={() => { setDemoRequest(false); onAction('APPROVE'); }}>Approve</Button>
-                 <Button variant="secondary" style={{ padding: '12px 32px' }} onClick={() => { setDemoRequest(false); onAction('DENY'); }}>Deny</Button>
+                 <Button variant="primary" style={{ padding: '12px 32px' }} onClick={() => onAction('APPROVE')}>Approve</Button>
+                 <Button variant="secondary" style={{ padding: '12px 32px' }} onClick={() => onAction('DENY')}>Deny</Button>
               </div>
            </div>
          ) : (
@@ -44,17 +43,10 @@ const PairingDevicesPage = ({ state, onAction }: any) => {
                     {state.engineActive
                       ? (state.connectedDevice.status === 'Connected'
                           ? 'A device is connected to this host.'
-                          : 'Waiting for mobile pairing request...')
+                          : 'Waiting for mobile pairing request on ws://HOST_IP:47777...')
                       : 'Start the engine to accept pairing requests.'}
                  </p>
               </div>
-              {canSimulate && (
-                <div style={{ marginTop: '24px' }}>
-                   <Button variant="secondary" onClick={() => setDemoRequest(true)}>
-                      Simulate pairing request (demo)
-                   </Button>
-                </div>
-              )}
            </div>
          )}
       </Card>
@@ -64,7 +56,7 @@ const PairingDevicesPage = ({ state, onAction }: any) => {
          <div style={{ textAlign: 'center', padding: '20px 0' }}>
             <p className="text-muted" style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '1.5px' }}>Session Broadcast Code</p>
             <h2 style={{ fontSize: '42px', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: 'var(--accent-blue)', margin: '0 0 8px 0', letterSpacing: '4px' }}>{state.pairingCode}</h2>
-            <p className="text-muted" style={{ fontSize: '12px', marginBottom: '24px' }}>Regenerates on engine restart or timeout.</p>
+            <p className="text-muted" style={{ fontSize: '12px', marginBottom: '24px' }}>Server: {state.serverStatus} · Port {state.port}</p>
             <Button variant="secondary" style={{ width: '100%' }} onClick={() => onAction('REGEN_CODE')}>Reset Session Token</Button>
          </div>
       </Card>
@@ -99,11 +91,10 @@ const PairingDevicesPage = ({ state, onAction }: any) => {
             <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
                <ShieldAlert size={32} color="var(--accent-red)" />
                <div>
-                  <h4 style={{ color: 'var(--accent-red)', fontWeight: 600, marginBottom: '4px' }}>Encryption Notice</h4>
+                  <h4 style={{ color: 'var(--accent-red)', fontWeight: 600, marginBottom: '4px' }}>Phase 1 Safety Notice</h4>
                   <p className="text-muted" style={{ margin: 0, fontSize: '13px', lineHeight: 1.5 }}>
-                     Every pairing handshake uses RSA-4096 / AES-256 GCM encryption. 
-                     Authorization must be confirmed physically on this computer. 
-                     RemoteLink Pro core prevents all forms of background stealth observation.
+                     Local WebSocket pairing requires the visible desktop engine, matching pairing code, and explicit host approval.
+                     Mobile controls are logged as command_log messages only; no mouse or keyboard input is executed in Phase 1.
                   </p>
                </div>
             </div>

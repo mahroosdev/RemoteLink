@@ -76,7 +76,15 @@ class _ConnectScreenState extends State<ConnectScreen> {
 
     setState(() => _statusNote = null);
     await widget.state.connect(ip, code);
-    if (!mounted || !widget.state.isConnected) return;
+    if (!mounted) return;
+    if (!widget.state.isConnected) {
+      _showSnack(
+        widget.state.lastConnectionError ??
+            'Connection failed. Start desktop app, turn engine ON, check Host IP, same Wi-Fi, and firewall.',
+        context.colors.red,
+      );
+      return;
+    }
     _showSnack('Connected to PC locally', context.colors.green);
     widget.onConnected();
   }
@@ -112,7 +120,8 @@ class _ConnectScreenState extends State<ConnectScreen> {
           builder: (context, _) {
             final c = context.colors;
             final isConnected = widget.state.isConnected;
-            final isConnecting = widget.state.status == ConnectionStatus.connecting;
+            final isConnecting = widget.state.status == ConnectionStatus.connecting ||
+                widget.state.status == ConnectionStatus.waitingApproval;
 
             final form = _buildForm(context, c, isConnected, isConnecting);
             final statusCard = _buildStatusCard(context, c, isConnected, isConnecting);
@@ -282,13 +291,15 @@ class _ConnectScreenState extends State<ConnectScreen> {
               ),
               StatusPill(
                 label: isConnected || isConnecting
-                    ? widget.state.status.name
+                    ? _statusLabel(widget.state.status)
                     : (_statusNote ?? widget.state.status.name),
                 color: isConnected
                     ? c.green
                     : isConnecting
                         ? c.amber
-                        : _statusNote == 'NO DESKTOP FOUND'
+                        : _statusNote == 'NO DESKTOP FOUND' ||
+                                widget.state.status == ConnectionStatus.denied ||
+                                widget.state.status == ConnectionStatus.failed
                             ? c.amber
                             : c.textMuted,
               ),
@@ -304,5 +315,22 @@ class _ConnectScreenState extends State<ConnectScreen> {
         ],
       ),
     );
+  }
+
+  String _statusLabel(ConnectionStatus status) {
+    switch (status) {
+      case ConnectionStatus.waitingApproval:
+        return 'WAITING APPROVAL';
+      case ConnectionStatus.connecting:
+        return 'CONNECTING';
+      case ConnectionStatus.connected:
+        return 'CONNECTED';
+      case ConnectionStatus.denied:
+        return 'DENIED';
+      case ConnectionStatus.failed:
+        return 'FAILED';
+      case ConnectionStatus.disconnected:
+        return 'DISCONNECTED';
+    }
   }
 }

@@ -49,6 +49,7 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
       return;
     }
     state.addLog('Sent text: $text');
+    state.sendCommandLog('text', {'text': text});
     _textController.clear();
   }
 
@@ -349,6 +350,7 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
       return MonitorSelector(
         monitorCount: state.detectedMonitorCount,
         activeMonitor: state.activeMonitor,
+        labels: state.detectedMonitors.map((monitor) => monitor.label).toList(growable: false),
         onMonitorChanged: state.setActiveMonitor,
       );
     }
@@ -380,11 +382,23 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
       builder: (context, showPointer, _) => TouchpadArea(
         height: height,
         showPointer: showPointer,
-        onMove: (_) => state.setTransientAction('Pointer moving...'),
+        onMove: (delta) {
+          state.setTransientAction('Pointer moving...');
+          state.sendCommandLog('touchpad_move', {'dx': delta.dx, 'dy': delta.dy});
+        },
         onMoveEnd: () => state.addLog('Pointer moved'),
-        onTap: () => state.addLog('Left Click (tap)'),
-        onDoubleTap: () => state.addLog('Double Click'),
-        onLongPress: () => state.addLog('Long Press'),
+        onTap: () {
+          state.addLog('Left Click (tap)');
+          state.sendCommandLog('left_click', {'source': 'touchpad_tap'});
+        },
+        onDoubleTap: () {
+          state.addLog('Double Click');
+          state.sendCommandLog('left_click', {'clicks': 2});
+        },
+        onLongPress: () {
+          state.addLog('Long Press');
+          state.sendCommandLog('right_click', {'source': 'touchpad_long_press'});
+        },
       ),
     );
   }
@@ -397,13 +411,19 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
           _MouseButton(
             label: 'Left Click',
             icon: MouseClickIcon(outline: c.textSecondary, highlight: c.textPrimary),
-            onTap: () => state.addLog('Left click sent'),
+            onTap: () {
+              state.addLog('Left click sent');
+              state.sendCommandLog('left_click', {});
+            },
           ),
           const SizedBox(width: 8),
           _MouseButton(
             label: 'Right Click',
             icon: MouseClickIcon(right: true, outline: c.textSecondary, highlight: c.textPrimary),
-            onTap: () => state.addLog('Right click sent'),
+            onTap: () {
+              state.addLog('Right click sent');
+              state.sendCommandLog('right_click', {});
+            },
           ),
         ],
       ),
@@ -413,13 +433,19 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
           _MouseButton(
             label: 'Scroll Up',
             icon: Icon(Icons.keyboard_arrow_up, size: 18, color: c.textSecondary),
-            onTap: () => state.addLog('Scroll up'),
+            onTap: () {
+              state.addLog('Scroll up');
+              state.sendCommandLog('scroll_up', {});
+            },
           ),
           const SizedBox(width: 8),
           _MouseButton(
             label: 'Scroll Down',
             icon: Icon(Icons.keyboard_arrow_down, size: 18, color: c.textSecondary),
-            onTap: () => state.addLog('Scroll down'),
+            onTap: () {
+              state.addLog('Scroll down');
+              state.sendCommandLog('scroll_down', {});
+            },
           ),
         ],
       ),
@@ -453,10 +479,10 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
   }
 
   List<Widget> _basicKeyChips() => [
-        ShortcutKeyButton(label: 'Esc', onTap: () => state.addLog('Esc pressed')),
-        ShortcutKeyButton(label: 'Tab', onTap: () => state.addLog('Tab pressed')),
-        ShortcutKeyButton(label: 'Enter', onTap: () => state.addLog('Enter pressed')),
-        ShortcutKeyButton(label: 'Del', onTap: () => state.addLog('Del pressed')),
+        ShortcutKeyButton(label: 'Esc', onTap: () => _sendKey('Esc')),
+        ShortcutKeyButton(label: 'Tab', onTap: () => _sendKey('Tab')),
+        ShortcutKeyButton(label: 'Enter', onTap: () => _sendKey('Enter')),
+        ShortcutKeyButton(label: 'Del', onTap: () => _sendKey('Del')),
       ];
 
   List<Widget> _modifierChips() => [
@@ -474,10 +500,10 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
       ];
 
   List<Widget> _actionChips() => [
-        ShortcutKeyButton(label: 'Cut', onTap: () => state.addLog('Cut (Ctrl+X) sent')),
-        ShortcutKeyButton(label: 'Copy', onTap: () => state.addLog('Copy (Ctrl+C) sent')),
-        ShortcutKeyButton(label: 'Paste', onTap: () => state.addLog('Paste (Ctrl+V) sent')),
-        ShortcutKeyButton(label: 'Alt+Tab', onTap: () => state.addLog('Alt+Tab sent')),
+        ShortcutKeyButton(label: 'Cut', onTap: () => _sendShortcut('Cut', 'Ctrl+X')),
+        ShortcutKeyButton(label: 'Copy', onTap: () => _sendShortcut('Copy', 'Ctrl+C')),
+        ShortcutKeyButton(label: 'Paste', onTap: () => _sendShortcut('Paste', 'Ctrl+V')),
+        ShortcutKeyButton(label: 'Alt+Tab', onTap: () => _sendShortcut('Alt+Tab', 'Alt+Tab')),
       ];
 
   List<Widget> _functionKeyChips() => List.generate(
@@ -485,9 +511,19 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
         (index) => ShortcutKeyButton(
           width: 64,
           label: 'F${index + 1}',
-          onTap: () => state.addLog('F${index + 1} pressed'),
+          onTap: () => _sendKey('F${index + 1}'),
         ),
       );
+
+  void _sendKey(String key) {
+    state.addLog('$key pressed');
+    state.sendCommandLog('key', {'key': key, 'state': 'pressed'});
+  }
+
+  void _sendShortcut(String label, String shortcut) {
+    state.addLog('$label ($shortcut) sent');
+    state.sendCommandLog('shortcut', {'label': label, 'shortcut': shortcut});
+  }
 }
 
 /// Manual layout switch: "Landscape Controls" in portrait mode and

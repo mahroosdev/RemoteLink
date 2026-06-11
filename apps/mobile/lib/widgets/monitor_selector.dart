@@ -4,12 +4,14 @@ import '../theme/app_theme.dart';
 /// Renders one pill per detected monitor (data-driven, supports 1..3+).
 class MonitorSelector extends StatelessWidget {
   final int monitorCount;
+  final List<String> labels;
   final int activeMonitor;
   final Function(int) onMonitorChanged;
 
   const MonitorSelector({
     super.key,
     required this.monitorCount,
+    this.labels = const [],
     required this.activeMonitor,
     required this.onMonitorChanged,
   });
@@ -21,7 +23,7 @@ class MonitorSelector extends StatelessWidget {
         for (var id = 1; id <= monitorCount; id++) ...[
           if (id > 1) const SizedBox(width: 12),
           _MonitorButton(
-            label: 'Screen $id',
+            label: id <= labels.length ? labels[id - 1] : 'Screen $id',
             isActive: activeMonitor == id,
             onTap: () => onMonitorChanged(id),
           ),

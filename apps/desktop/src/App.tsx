@@ -12,8 +12,21 @@ import SettingsGuidePage from './pages/SettingsGuidePage';
 import ManualPage from './pages/ManualPage';
 
 // Data & State
-import { DeviceInfo, LogItem, MonitorInfo, AppSettings, defaultSettings } from './state/appState';
+import { DeviceInfo, LogItem, MonitorInfo, AppSettings, defaultSettings, EngineState } from './state/appState';
 import { mockConnectedDevice, initialLogs, mockMonitors } from './data/mockData';
+
+const fallbackEngineState: EngineState = {
+  engineActive: false,
+  serverStatus: 'offline',
+  hostIp: 'Local IP unavailable',
+  hostIpCandidates: [],
+  port: 47777,
+  pairingCode: '------',
+  pendingRequest: null,
+  connectedDevice: null,
+  detectedMonitors: mockMonitors,
+  activityLog: initialLogs,
+};
 
 function App() {
   // Navigation State
@@ -21,17 +34,9 @@ function App() {
   const [settingsTab, setSettingsTab] = useState('General');
 
   // App State
-  // Real local IP detection is not implemented yet — show a placeholder
-  // instead of a hardcoded address. The engine/pairing layer will replace
-  // this with the actually detected local IP.
-  const [localIP] = useState('Detecting...');
-  const [pairingCode, setPairingCode] = useState('731 942');
+  const [engineState, setEngineState] = useState<EngineState>(fallbackEngineState);
   const [pairingExpiry] = useState(60);
-  const [connectedDevice, setConnectedDevice] = useState<DeviceInfo>(mockConnectedDevice);
   const [trustedDevices, setTrustedDevices] = useState<DeviceInfo[]>([]);
-  const [logs, setLogs] = useState<LogItem[]>(initialLogs);
-  const [monitors, setMonitors] = useState<MonitorInfo[]>(mockMonitors);
-  const [engineActive, setEngineActive] = useState(false);
   const [previewActive, setPreviewActive] = useState(false);
   const [mobileRotation, setMobileRotation] = useState(0); // 0 = portrait, 90 = landscape
 
@@ -59,6 +64,27 @@ function App() {
     localStorage.setItem('remotelink_settings', JSON.stringify(settings));
   }, [settings]);
 
+  useEffect(() => {
+    let mounted = true;
+    window.remotelink.getEngineState().then((state) => {
+      if (mounted) setEngineState(state);
+    });
+    const unsubscribe = window.remotelink.onEngineStateChanged((state) => {
+      setEngineState(state);
+    });
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, []);
+
+  const connectedDevice = engineState.connectedDevice ?? mockConnectedDevice;
+  const logs = engineState.activityLog;
+  const monitors = engineState.detectedMonitors;
+  const engineActive = engineState.engineActive;
+  const localIP = engineState.hostIp;
+  const pairingCode = engineState.pairingCode;
+
   // Actions
   const addLog = (event: string, type: LogItem['type'], status: LogItem['status'] = 'Info') => {
     const newLog: LogItem = {
@@ -69,7 +95,12 @@ function App() {
       device: connectedDevice.status === 'Connected' ? connectedDevice.name : undefined,
       status
     };
-    setLogs(prev => [newLog, ...prev]);
+    setEngineState(prev => ({ ...prev, activityLog: [newLog, ...prev.activityLog] }));
+  };
+
+  const applyEngineAction = async (action: Promise<EngineState>) => {
+    const nextState = await action;
+    setEngineState(nextState);
   };
 
   const onAction = (type: string, payload?: any) => {
@@ -78,15 +109,12 @@ function App() {
         setActiveTab(payload);
         break;
       case 'TOGGLE_ENGINE':
-        const newState = !engineActive;
-        setEngineActive(newState);
-        if (!newState) {
-           setPreviewActive(false);
-           setConnectedDevice(prev => ({ ...prev, status: 'Disconnected' }));
+        if (engineActive) {
+          setPreviewActive(false);
+          applyEngineAction(window.remotelink.stopEngine());
         } else {
-           setConnectedDevice(prev => ({ ...prev, status: 'Disconnected' }));
+          applyEngineAction(window.remotelink.startEngine());
         }
-        addLog(`Engine Core: ${newState ? 'Initialized' : 'Terminated'}`, 'System', newState ? 'Success' : 'Info');
         break;
       case 'TOGGLE_PREVIEW':
         if (!engineActive) return;
@@ -95,27 +123,34 @@ function App() {
         addLog(`Monitor Broadcast: ${newPrev ? 'Active' : 'Standby'}`, 'Monitor');
         break;
       case 'REGEN_CODE':
-        const newCode = Math.floor(100000 + Math.random() * 900000).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-        setPairingCode(newCode);
-        addLog('Handshake Token Regenerated', 'Pairing');
+        applyEngineAction(window.remotelink.regeneratePairingCode());
         break;
       case 'APPROVE':
-        setConnectedDevice(prev => ({ ...prev, status: 'Connected' }));
-        setTrustedDevices(prev => [...prev, { ...connectedDevice, status: 'Connected', lastSeen: 'Active Now' }]);
-        addLog('Mobile Authorization: APPROVED', 'Pairing', 'Success');
+        applyEngineAction(window.remotelink.approvePairing()).then(() => {
+          if (engineState.pendingRequest) {
+            setTrustedDevices(prev => [...prev, {
+              name: engineState.pendingRequest!.deviceName,
+              os: 'Android / RemoteLink Mobile',
+              status: 'Connected',
+              lastSeen: 'Active Now',
+              ip: engineState.pendingRequest!.ip,
+            }]);
+          }
+        });
         setActiveTab('Overview');
         break;
       case 'DENY':
-        setConnectedDevice(prev => ({ ...prev, status: 'Disconnected' }));
-        addLog('Mobile Authorization: DENIED', 'Pairing', 'Warning');
+        applyEngineAction(window.remotelink.denyPairing());
         break;
       case 'DISCONNECT':
-        setConnectedDevice(prev => ({ ...prev, status: 'Disconnected' }));
         setPreviewActive(false);
-        addLog('Session Terminated by Host', 'System', 'Info');
+        applyEngineAction(window.remotelink.disconnectDevice());
         break;
       case 'SWITCH_MONITOR':
-        setMonitors(prev => prev.map(m => ({ ...m, isActive: m.id === payload })));
+        setEngineState(prev => ({
+          ...prev,
+          detectedMonitors: prev.detectedMonitors.map(m => ({ ...m, isActive: m.id === payload })),
+        }));
         addLog(`Stream target: ${payload === 1 ? 'Display 1' : 'Display 2'}`, 'Monitor', 'Success');
         break;
       case 'MOBILE_CMD':
@@ -126,7 +161,7 @@ function App() {
         addLog(`Device Orientation: ${mobileRotation === 0 ? 'Landscape' : 'Portrait'}`, 'Mobile');
         break;
       case 'CLEAR_LOG':
-        setLogs([]);
+        setEngineState(prev => ({ ...prev, activityLog: [] }));
         addLog('Diagnostic history cleared', 'System');
         break;
       case 'REMOVE_TRUSTED':
@@ -134,10 +169,16 @@ function App() {
         addLog('Device Trust Revoked', 'Security', 'Warning');
         break;
       case 'MONITOR_QUALITY':
-        setMonitors(prev => prev.map(m => m.id === payload.id ? { ...m, quality: payload.quality } : m));
+        setEngineState(prev => ({
+          ...prev,
+          detectedMonitors: prev.detectedMonitors.map(m => m.id === payload.id ? { ...m, quality: payload.quality } : m),
+        }));
         break;
       case 'MONITOR_FPS':
-        setMonitors(prev => prev.map(m => m.id === payload.id ? { ...m, fps: payload.fps } : m));
+        setEngineState(prev => ({
+          ...prev,
+          detectedMonitors: prev.detectedMonitors.map(m => m.id === payload.id ? { ...m, fps: payload.fps } : m),
+        }));
         break;
     }
   };
@@ -156,7 +197,10 @@ function App() {
     const props = { 
       state: { 
         localIP, pairingCode, pairingExpiry, connectedDevice, trustedDevices, 
-        logs, monitors, settings, engineActive, previewActive, mobileRotation 
+        logs, monitors, settings, engineActive, previewActive, mobileRotation,
+        serverStatus: engineState.serverStatus, port: engineState.port,
+        hostIpCandidates: engineState.hostIpCandidates,
+        pendingRequest: engineState.pendingRequest, engineError: engineState.error,
       }, 
       onAction, settingsTab, setSettingsTab, updateSettings 
     };
@@ -186,6 +230,7 @@ function App() {
           activeTab={activeTab} 
           localIP={localIP} 
           engineActive={engineActive}
+          serverStatus={engineState.serverStatus}
           onToggleEngine={() => onAction('TOGGLE_ENGINE')}
           onRefresh={() => onAction('REGEN_CODE')} 
         />

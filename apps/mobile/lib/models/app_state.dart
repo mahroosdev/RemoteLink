@@ -1,6 +1,10 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
-enum ConnectionStatus { disconnected, connecting, connected }
+import 'package:flutter/material.dart';
+import '../services/pairing_service.dart';
+import '../services/protocol.dart';
+
+enum ConnectionStatus { disconnected, connecting, waitingApproval, connected, denied, failed }
 
 class LogItem {
   final String event;
@@ -16,15 +20,23 @@ class LogItem {
 /// - `notifyListeners()` fires only for render-relevant interaction state:
 ///   connection status, monitors, held modifiers, function-keys expansion.
 class AppState extends ChangeNotifier {
+  AppState() {
+    _pairingSubscription = _pairingService.events.listen(_handlePairingEvent);
+  }
+
   // Connection State
   ConnectionStatus _status = ConnectionStatus.disconnected;
   String _hostIp = '';
   String _pairingCode = '';
+  String? _sessionId;
+  String? _lastConnectionError;
   int _activeMonitor = 1;
 
-  /// Monitors reported by the PC. 0 while disconnected; mock value after the
-  /// local connect succeeds (dynamic so real pairing can report 1..3+ later).
-  int _detectedMonitorCount = 0;
+  /// Monitors reported by the PC after approval.
+  List<RemoteMonitor> _detectedMonitors = const [];
+  final PairingService _pairingService = PairingService();
+  late final StreamSubscription<PairingEvent> _pairingSubscription;
+  Completer<void>? _pendingConnect;
 
   // Settings State (granular notifiers)
   final ValueNotifier<bool> autoReconnect = ValueNotifier(true);
@@ -57,8 +69,11 @@ class AppState extends ChangeNotifier {
   bool get isConnected => _status == ConnectionStatus.connected;
   String get hostIp => _hostIp;
   String get pairingCode => _pairingCode;
+  String? get sessionId => _sessionId;
+  String? get lastConnectionError => _lastConnectionError;
   int get activeMonitor => _activeMonitor;
-  int get detectedMonitorCount => _detectedMonitorCount;
+  int get detectedMonitorCount => _detectedMonitors.length;
+  List<RemoteMonitor> get detectedMonitors => _detectedMonitors;
   Set<String> get heldModifiers => _heldModifiers;
   List<LogItem> get activityLog => _activityLog;
   bool get showFunctionKeys => _showFunctionKeys;
@@ -66,6 +81,8 @@ class AppState extends ChangeNotifier {
 
   @override
   void dispose() {
+    _pairingSubscription.cancel();
+    unawaited(_pairingService.dispose());
     autoReconnect.dispose();
     lowLatencyMode.dispose();
     mouseSensitivity.dispose();
@@ -112,43 +129,48 @@ class AppState extends ChangeNotifier {
     _hostIp = ip;
     _pairingCode = code;
     _status = ConnectionStatus.connecting;
-    notifyListeners();
-
-    // Mock connection delay
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    // A disconnect while "connecting" must not be overwritten.
-    if (_status != ConnectionStatus.connecting) return;
-    _status = ConnectionStatus.connected;
-    // Mock detection until pairing reports the real monitor list.
-    _detectedMonitorCount = 2;
+    _lastConnectionError = null;
+    _sessionId = null;
+    _detectedMonitors = const [];
     _activeMonitor = 1;
-    addLog("Connected to PC locally ($ip)");
-    addLog("Detected $_detectedMonitorCount screen(s)");
     notifyListeners();
+
+    if (_pendingConnect != null && !_pendingConnect!.isCompleted) {
+      _pendingConnect!.complete();
+    }
+    _pendingConnect = Completer<void>();
+    await _pairingService.connect(ip, code);
+    return _pendingConnect!.future;
   }
 
   void disconnect() {
+    unawaited(_pairingService.disconnect());
     _status = ConnectionStatus.disconnected;
     _heldModifiers.clear();
-    _detectedMonitorCount = 0;
+    _detectedMonitors = const [];
+    _sessionId = null;
     _activeMonitor = 1;
     addLog("Disconnected from host");
     notifyListeners();
   }
 
   void setActiveMonitor(int id) {
-    if (id < 1 || id > _detectedMonitorCount) return;
+    if (id < 1 || id > detectedMonitorCount) return;
     _activeMonitor = id;
     addLog("Switched to Screen $id");
+    sendCommandLog('monitor_switch', {'screenIndex': id, 'monitorId': _detectedMonitors[id - 1].id});
     notifyListeners();
   }
 
   /// Dev-only simulation of how many monitors the PC reports (1..3).
   void setDetectedMonitorCount(int count) {
-    _detectedMonitorCount = count.clamp(1, 3);
-    if (_activeMonitor > _detectedMonitorCount) _activeMonitor = 1;
-    addLog("Simulated $_detectedMonitorCount detected screen(s)");
+    final simulatedCount = count.clamp(1, 3);
+    _detectedMonitors = [
+      for (var i = 1; i <= simulatedCount; i++)
+        RemoteMonitor(id: 'demo-screen-$i', label: 'Screen $i', primary: i == 1),
+    ];
+    if (_activeMonitor > detectedMonitorCount) _activeMonitor = 1;
+    addLog("Simulated $detectedMonitorCount detected screen(s)");
     notifyListeners();
   }
 
@@ -193,9 +215,11 @@ class AppState extends ChangeNotifier {
     if (_heldModifiers.contains(key)) {
       _heldModifiers.remove(key);
       addLog("Released $key");
+      sendCommandLog('key', {'key': key, 'state': 'released'});
     } else {
       _heldModifiers.add(key);
       addLog("Held $key");
+      sendCommandLog('key', {'key': key, 'state': 'held'});
     }
     notifyListeners();
   }
@@ -203,6 +227,7 @@ class AppState extends ChangeNotifier {
   void releaseAllKeys() {
     _heldModifiers.clear();
     addLog("All virtual keys released");
+    sendCommandLog('release_all_keys', {});
     notifyListeners();
   }
 
@@ -214,5 +239,73 @@ class AppState extends ChangeNotifier {
   void clearLog() {
     _activityLog.clear();
     notifyListeners();
+  }
+
+  void sendCommandLog(String command, Map<String, dynamic> details) {
+    if (!isConnected) {
+      setTransientAction('Connect before sending $command');
+      return;
+    }
+    _pairingService.sendCommandLog(command, details);
+  }
+
+  void _handlePairingEvent(PairingEvent event) {
+    switch (event.type) {
+      case MessageTypes.pairingPending:
+        _status = ConnectionStatus.waitingApproval;
+        addLog('Waiting for PC approval');
+        notifyListeners();
+        break;
+      case MessageTypes.pairingApproved:
+        _status = ConnectionStatus.connected;
+        _sessionId = event.sessionId;
+        _detectedMonitors = event.monitors;
+        _activeMonitor = 1;
+        addLog("Connected to PC locally ($_hostIp)");
+        addLog("Detected $detectedMonitorCount screen(s)");
+        _completePendingConnect();
+        notifyListeners();
+        break;
+      case MessageTypes.monitorList:
+        _detectedMonitors = event.monitors;
+        if (_activeMonitor > detectedMonitorCount) _activeMonitor = 1;
+        addLog("Updated monitor list: $detectedMonitorCount screen(s)");
+        notifyListeners();
+        break;
+      case MessageTypes.pairingDenied:
+        _status = ConnectionStatus.denied;
+        _lastConnectionError = event.message ?? 'Pairing denied by desktop';
+        _detectedMonitors = const [];
+        unawaited(_pairingService.disconnect(sendMessage: false));
+        addLog(_lastConnectionError!);
+        _completePendingConnect();
+        notifyListeners();
+        break;
+      case MessageTypes.disconnect:
+        _status = ConnectionStatus.disconnected;
+        _sessionId = null;
+        _detectedMonitors = const [];
+        _heldModifiers.clear();
+        addLog(event.message ?? 'Connection closed by desktop');
+        _completePendingConnect();
+        notifyListeners();
+        break;
+      case MessageTypes.error:
+        _status = ConnectionStatus.failed;
+        _lastConnectionError = event.message ??
+            'Connection failed. Start desktop app, turn engine ON, check Host IP, same Wi-Fi, and firewall.';
+        _detectedMonitors = const [];
+        unawaited(_pairingService.disconnect(sendMessage: false));
+        addLog(_lastConnectionError!);
+        _completePendingConnect();
+        notifyListeners();
+        break;
+    }
+  }
+
+  void _completePendingConnect() {
+    if (_pendingConnect != null && !_pendingConnect!.isCompleted) {
+      _pendingConnect!.complete();
+    }
   }
 }

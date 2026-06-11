@@ -1,10 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Smartphone, Monitor, Activity, ShieldCheck, Copy, RefreshCw, ArrowRight } from 'lucide-react';
 import { Card, StatusPill, Button } from '../components/Common';
 
 const OverviewPage = ({ state, onAction }: any) => {
   const isConnected = state.engineActive && state.connectedDevice.status === 'Connected';
-  const isListening = state.engineActive && state.connectedDevice.status !== 'Connected';
+  const isListening = state.engineActive && state.serverStatus === 'listening' && state.connectedDevice.status !== 'Connected';
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
+
+  const copyText = async (label: string, text: string) => {
+    try {
+      await window.remotelink.copyText(text);
+      setCopyStatus(`${label} copied`);
+      setTimeout(() => setCopyStatus(null), 1600);
+    } catch (error) {
+      setCopyStatus(error instanceof Error ? error.message : 'Copy failed');
+      setTimeout(() => setCopyStatus(null), 2500);
+    }
+  };
 
   return (
     <div className="grid">
@@ -23,16 +35,22 @@ const OverviewPage = ({ state, onAction }: any) => {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '8px' }}>
                 <h4 style={{ margin: 0, fontSize: '22px', fontWeight: 500 }}>
-                  {!state.engineActive ? 'Engine Offline' : isConnected ? state.connectedDevice.name : 'Listening for Handshake'}
+                  {!state.engineActive ? 'Engine Offline' : isConnected ? state.connectedDevice.name : 'Engine Online'}
                 </h4>
                 <StatusPill 
-                  label={!state.engineActive ? 'STOPPED' : isConnected ? 'CONNECTED' : 'WAITING'} 
-                  type={!state.engineActive ? 'info' : isConnected ? 'success' : 'warning'} 
+                  label={state.serverStatus === 'error' ? 'ERROR' : !state.engineActive ? 'STOPPED' : isConnected ? 'CONNECTED' : 'SERVER LISTENING'}
+                  type={state.serverStatus === 'error' ? 'error' : !state.engineActive ? 'info' : isConnected ? 'success' : 'warning'}
                 />
               </div>
               <p className="text-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
                 <ShieldCheck size={16} color={isConnected ? 'var(--accent-green)' : 'var(--text-muted)'} />
-                {isConnected ? 'Secure Encrypted P2P Session Active' : 'Waiting for pairing request from mobile app'}
+                {state.engineError
+                  ? state.engineError
+                  : isConnected
+                    ? 'Local approved session active; commands are logged only'
+                    : isListening
+                      ? `Server Listening at ws://${state.localIP}:${state.port}`
+                      : 'Start Remote Engine to listen for pairing requests'}
               </p>
             </div>
           </div>
@@ -56,7 +74,7 @@ const OverviewPage = ({ state, onAction }: any) => {
                  <code style={{ fontSize: '22px', fontWeight: 600, color: 'var(--accent-blue)', fontFamily: 'JetBrains Mono, monospace' }}>{state.pairingCode}</code>
                  <div style={{ display: 'flex', gap: '12px' }}>
                     <RefreshCw size={16} className="text-muted" style={{ cursor: 'pointer' }} onClick={() => onAction('REGEN_CODE')} />
-                    <Copy size={16} className="text-muted" style={{ cursor: 'pointer' }} />
+                    <Copy size={16} className="text-muted" style={{ cursor: 'pointer' }} onClick={() => copyText('Pairing code', state.pairingCode)} />
                  </div>
               </div>
            </div>
@@ -64,8 +82,15 @@ const OverviewPage = ({ state, onAction }: any) => {
               <p className="text-muted" style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '1px' }}>Local Host Address</p>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                  <code style={{ fontSize: '15px', fontWeight: 700, fontFamily: 'monospace' }}>{state.localIP}</code>
-                 <Copy size={16} className="text-muted" style={{ cursor: 'pointer' }} />
+                 <Copy size={16} className="text-muted" style={{ cursor: 'pointer' }} onClick={() => copyText('Host IP', state.localIP)} />
               </div>
+              <p className="text-muted" style={{ fontSize: '11px', margin: '8px 0 0 0' }}>Use the Host IP from the same Wi-Fi network as your phone. For Chrome on this PC, localhost or 127.0.0.1 is valid.</p>
+              {state.hostIpCandidates?.length > 1 && (
+                <p className="text-muted" style={{ fontSize: '11px', margin: '6px 0 0 0' }}>
+                  Other detected IPs: {state.hostIpCandidates.slice(1).join(', ')}
+                </p>
+              )}
+              {copyStatus && <p style={{ fontSize: '11px', margin: '8px 0 0 0', color: 'var(--accent-green)' }}>{copyStatus}</p>}
            </div>
         </div>
       </Card>

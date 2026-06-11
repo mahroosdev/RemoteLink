@@ -27,6 +27,29 @@ export interface MonitorInfo {
   quality: string;
   fps: number;
   sourceId?: string;
+  protocolId?: string;
+}
+
+export interface PendingPairingRequest {
+  deviceName: string;
+  deviceId: string;
+  appVersion: string;
+  ip: string;
+  requestedAt: string;
+}
+
+export interface EngineState {
+  engineActive: boolean;
+  serverStatus: 'offline' | 'starting' | 'listening' | 'error';
+  hostIp: string;
+  hostIpCandidates: string[];
+  port: number;
+  pairingCode: string;
+  pendingRequest: PendingPairingRequest | null;
+  connectedDevice: (DeviceInfo & { deviceId?: string; appVersion?: string }) | null;
+  detectedMonitors: MonitorInfo[];
+  activityLog: LogItem[];
+  error?: string;
 }
 
 export type AppTheme = 'Professional Dark' | 'Pure Black' | 'Light' | 'System Default';
@@ -92,6 +115,17 @@ declare global {
   interface Window {
     electronAPI: {
       getDesktopSources: () => Promise<any[]>;
-    }
+    };
+    remotelink: {
+      getEngineState: () => Promise<EngineState>;
+      startEngine: () => Promise<EngineState>;
+      stopEngine: () => Promise<EngineState>;
+      regeneratePairingCode: () => Promise<EngineState>;
+      approvePairing: () => Promise<EngineState>;
+      denyPairing: () => Promise<EngineState>;
+      disconnectDevice: () => Promise<EngineState>;
+      copyText: (text: string) => Promise<{ ok: boolean }>;
+      onEngineStateChanged: (callback: (state: EngineState) => void) => () => void;
+    };
   }
 }

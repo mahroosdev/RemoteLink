@@ -3,23 +3,26 @@
 ## Connection Overview
 
 RemoteLink focuses on a "Local Nearby Mode" first, ensuring a fast and secure connection within the same network.
+Phase 1 uses local WebSocket pairing only. There is no internet relay, no hidden access, and no real mouse/keyboard execution.
 
 ### 1. How to find PC Local IP
 Users can find their local IP address via:
 - **Windows**: `ipconfig` in Command Prompt.
-- **RemoteLink UI**: The desktop app will display the detected local IP on the main dashboard (example format only: `192.168.0.24`).
+- **RemoteLink UI**: Turn the desktop Remote Engine ON. The desktop app displays the detected local IP and listens on port `47777`.
 
 ### 2. How Pairing Code works
-- The Desktop app generates a random 6-digit pairing code.
+- The Desktop main process generates a random 6-digit pairing code.
 - This code is required by the mobile app to establish the initial trust relationship.
 
 ### 3. How Mobile connects to PC
-- The mobile app scans the local network for the Desktop app's port or the user manually enters the PC's local IP.
-- Once the IP is identified, the mobile app sends a connection request.
+- The user manually enters the PC's local IP and pairing code.
+- The mobile app connects to `ws://HOST_IP:47777` and sends a `pairing_request`.
+- Scanning remains clearly separated from real pairing and does not fabricate desktops.
 
 ### 4. How PC approves the connection
-- When a mobile device attempts to connect, a popup appears on the Desktop app.
-- The user must enter the pairing code displayed on the mobile device or click "Approve" on the Desktop UI.
+- When a mobile device attempts to connect with the correct code, a pending request appears on the Desktop app.
+- The desktop user must click Approve before the mobile app becomes connected.
+- Windows Firewall may ask for permission; allow access on private/local networks only.
 
 ### 5. How Screen Switching works
 - RemoteLink supports multiple monitors.
@@ -40,10 +43,12 @@ Messages are exchanged as JSON objects over WebSockets.
 ### Example Message:
 ```json
 {
-  "type": "MOUSE_MOVE",
+  "type": "command_log",
   "payload": {
-    "x": 100,
-    "y": 200
+    "command": "left_click",
+    "details": {}
   }
 }
 ```
+
+Phase 1 command messages are logged by the desktop only. They do not execute OS input.
