@@ -1,26 +1,55 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'theme/app_theme.dart';
 import 'models/app_state.dart';
+import 'screens/brand_preview_screen.dart';
 import 'screens/connect_screen.dart';
+import 'screens/dev_preview_screen.dart';
 import 'screens/remote_control_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/manual_screen.dart';
 
+import 'package:flutter/services.dart';
+
 class RemoteLinkApp extends StatefulWidget {
-  const RemoteLinkApp({super.key});
+  final AppState? state;
+  final bool ownsState;
+
+  const RemoteLinkApp({super.key, this.state, this.ownsState = false});
 
   @override
   State<RemoteLinkApp> createState() => _RemoteLinkAppState();
 }
 
 class _RemoteLinkAppState extends State<RemoteLinkApp> {
-  final AppState _state = AppState();
+  late final AppState _state;
+  late final bool _ownsState;
   int _currentIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _state = widget.state ?? AppState();
+    _ownsState = widget.state == null || widget.ownsState;
+    _lockAppPortrait();
+  }
+
+  @override
   void dispose() {
-    _state.dispose();
+    if (_ownsState) {
+      _state.dispose();
+    }
     super.dispose();
+  }
+
+  void _onTabTapped(int index) {
+    setState(() => _currentIndex = index);
+  }
+
+  void _lockAppPortrait() {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
   }
 
   @override
@@ -30,16 +59,23 @@ class _RemoteLinkAppState extends State<RemoteLinkApp> {
     return ValueListenableBuilder<String>(
       valueListenable: _state.themeMode,
       builder: (context, mode, _) => MaterialApp(
-        title: 'Remote Link',
+        title: 'RemoteLink',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.themeFor(mode),
-        // Portrait: bottom navigation. Landscape: compact side rail so the
-        // short viewport keeps its height for content. Same _currentIndex —
-        // rotating the device never loses the selected tab.
-        home: OrientationBuilder(
-          builder: (context, orientation) {
-            final isLandscape = orientation == Orientation.landscape;
-
+        routes: {
+          if (kDebugMode)
+            '/dev-preview': (_) => DevPreviewScreen(state: _state),
+          if (kDebugMode) '/brand-preview': (_) => const BrandPreviewScreen(),
+          if (kDebugMode)
+            '/connect-preview': (_) => ConnectScreen(
+                state: _state, onConnected: () => _onTabTapped(1)),
+          if (kDebugMode)
+            '/controls-preview': (_) => RemoteControlScreen(state: _state),
+          if (kDebugMode)
+            '/settings-preview': (_) => SettingsScreen(state: _state),
+        },
+        home: Builder(
+          builder: (context) {
             // IndexedStack keeps all four screens alive so settings values,
             // scan results and held keys survive tab switches without rebuilds.
             final screens = IndexedStack(
@@ -47,7 +83,7 @@ class _RemoteLinkAppState extends State<RemoteLinkApp> {
               children: [
                 ConnectScreen(
                   state: _state,
-                  onConnected: () => setState(() => _currentIndex = 1),
+                  onConnected: () => _onTabTapped(1),
                 ),
                 RemoteControlScreen(state: _state),
                 SettingsScreen(state: _state),
@@ -56,39 +92,21 @@ class _RemoteLinkAppState extends State<RemoteLinkApp> {
             );
 
             return Scaffold(
-              body: isLandscape
-                  ? Row(
-                      children: [
-                        SafeArea(
-                          child: NavigationRail(
-                            selectedIndex: _currentIndex,
-                            onDestinationSelected: (index) => setState(() => _currentIndex = index),
-                            labelType: NavigationRailLabelType.all,
-                            destinations: const [
-                              NavigationRailDestination(icon: Icon(Icons.wifi), label: Text('Connect')),
-                              NavigationRailDestination(icon: Icon(Icons.settings_remote), label: Text('Remote')),
-                              NavigationRailDestination(icon: Icon(Icons.settings), label: Text('Settings')),
-                              NavigationRailDestination(icon: Icon(Icons.book), label: Text('Manual')),
-                            ],
-                          ),
-                        ),
-                        const VerticalDivider(width: 1, thickness: 1),
-                        Expanded(child: screens),
-                      ],
-                    )
-                  : screens,
-              bottomNavigationBar: isLandscape
-                  ? null
-                  : BottomNavigationBar(
-                      currentIndex: _currentIndex,
-                      onTap: (index) => setState(() => _currentIndex = index),
-                      items: const [
-                        BottomNavigationBarItem(icon: Icon(Icons.wifi), label: 'Connect'),
-                        BottomNavigationBarItem(icon: Icon(Icons.settings_remote), label: 'Remote'),
-                        BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
-                        BottomNavigationBarItem(icon: Icon(Icons.book), label: 'Manual'),
-                      ],
-                    ),
+              body: screens,
+              bottomNavigationBar: BottomNavigationBar(
+                currentIndex: _currentIndex,
+                onTap: _onTabTapped,
+                items: const [
+                  BottomNavigationBarItem(
+                      icon: Icon(Icons.wifi), label: 'Connect'),
+                  BottomNavigationBarItem(
+                      icon: Icon(Icons.settings_remote), label: 'Remote'),
+                  BottomNavigationBarItem(
+                      icon: Icon(Icons.settings), label: 'Settings'),
+                  BottomNavigationBarItem(
+                      icon: Icon(Icons.book), label: 'Manual'),
+                ],
+              ),
             );
           },
         ),

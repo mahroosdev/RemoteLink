@@ -1,0 +1,28 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- White Circular Background for Splash Icon - Radius reduced for better fit -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,54m-30,0a30,30 0,1 1,60,0a30,30 0,1 1,-60,0" />
+    
+    <!-- Link Ring Symbol (Black) - SCALED DOWN -->
+    <!-- Thin Circular Ring -->
+    <path
+        android:strokeColor="#000000"
+        android:strokeWidth="3.5"
+        android:pathData="M54,54m-18,0a18,18 0,1 1,36,0a18,18 0,1 1,-36,0" />
+    
+    <!-- Bold Angled Link/Chevron Marks -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M50,47 L44,54 L50,61 L53,58 L48,54 L53,50 Z" />
+    
+    <path
+        android:fillColor="#000000"
+        android:pathData="M58,47 L64,54 L58,61 L55,58 L60,54 L55,50 Z" />
+
+</vector>

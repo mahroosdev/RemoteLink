@@ -59,4 +59,11 @@ Phase 1 command messages are logged by the desktop only. They do not execute OS 
 ## Play Store Release Prep
 
 For Play Store release, create a private upload keystore outside the repo and build an AAB with `flutter build appbundle --release`. Do not commit signing keys, passwords, or Play Console secrets.
+Before Play Store release, create a public privacy policy URL and support page. Do not place private email addresses directly inside the app UI.
 Android cleartext traffic is intentionally enabled for local `ws://HOST_IP:47777` LAN pairing.
+
+## Microsoft Store Prep
+
+Windows publishing will need a packaged desktop build later.
+Prepare privacy policy and support page URLs before Microsoft Store submission.
+Do not add personal email addresses inside the app UI.

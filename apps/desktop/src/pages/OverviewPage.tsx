@@ -8,7 +8,6 @@ const OverviewPage = ({ state, onAction }: any) => {
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const fallbackIps = state.hostIpFallbacks ?? [];
   const recommendedIps = state.hostIpCandidates ?? [];
-  const selectableIps = [...recommendedIps, ...fallbackIps];
 
   const copyText = async (label: string, text: string) => {
     try {
@@ -88,7 +87,7 @@ const OverviewPage = ({ state, onAction }: any) => {
                  <Copy size={16} className="text-muted" style={{ cursor: 'pointer' }} onClick={() => copyText('Host IP', state.localIP)} />
               </div>
               <code style={{ display: 'block', marginTop: '8px', fontSize: '12px', color: 'var(--accent-blue)', fontFamily: 'monospace' }}>ws://{state.localIP}:{state.port}</code>
-              {selectableIps.length > 1 && (
+              {recommendedIps.length > 1 && (
                 <select
                   value={state.selectedHostIp}
                   onChange={(event) => onAction('SELECT_HOST_IP', event.target.value)}
@@ -107,12 +106,9 @@ const OverviewPage = ({ state, onAction }: any) => {
                   {recommendedIps.map((ip: string, index: number) => (
                     <option key={ip} value={ip}>{index === 0 ? 'Recommended' : 'LAN'} - {ip}</option>
                   ))}
-                  {fallbackIps.map((ip: string) => (
-                    <option key={ip} value={ip}>Virtual/fallback - {ip}</option>
-                  ))}
                 </select>
               )}
-              <p className="text-muted" style={{ fontSize: '11px', margin: '8px 0 0 0' }}>Use the Host IP from the same Wi-Fi network as your phone. For Chrome on this PC, localhost or 127.0.0.1 is valid.</p>
+              <p className="text-muted" style={{ fontSize: '11px', margin: '8px 0 0 0' }}>Use the Host IP from the same Wi-Fi or hotspot network as your phone.</p>
               {state.localIP === 'Local IP unavailable' && (
                 <p className="text-muted" style={{ fontSize: '11px', margin: '6px 0 0 0', color: 'var(--accent-amber)' }}>
                   Local IP unavailable. Check Wi-Fi/Ethernet and restart the Remote Engine.
@@ -120,7 +116,7 @@ const OverviewPage = ({ state, onAction }: any) => {
               )}
               {fallbackIps.length > 0 && (
                 <p className="text-muted" style={{ fontSize: '11px', margin: '6px 0 0 0' }}>
-                  Avoid VirtualBox, VMware, WSL, Docker, vEthernet and Bluetooth IPs for real phone pairing unless no LAN IP is available.
+                  Advanced ignored IPs: {fallbackIps.join(', ')}. Virtual adapter - not for phone pairing.
                 </p>
               )}
               {copyStatus && <p style={{ fontSize: '11px', margin: '8px 0 0 0', color: 'var(--accent-green)' }}>{copyStatus}</p>}

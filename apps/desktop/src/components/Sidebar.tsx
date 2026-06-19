@@ -44,7 +44,7 @@ const Sidebar = ({ activeTab, onTabChange, engineActive, connectedDevice }: { ac
           </span>
           </div>
           <p style={{ margin: '0 0 4px 0', fontSize: '13.5px', fontWeight: 500, color: 'var(--text-primary)' }}>
-          {connectedDevice.status === 'Connected' ? 'Remote Link Active' : 'Waiting for Device'}
+          {connectedDevice.status === 'Connected' ? 'RemoteLink Active' : 'Waiting for Device'}
           </p>
         <div style={{ width: '100%', height: '4px', background: 'var(--border-subtle)', borderRadius: '10px', overflow: 'hidden', marginTop: '12px' }}>
           <div style={{ width: engineActive ? '100%' : '0%', height: '100%', background: engineActive ? 'var(--accent-green)' : 'var(--text-muted)', transition: 'width 0.5s ease' }}></div>

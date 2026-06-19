@@ -48,31 +48,36 @@ class _MonitorButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isActive ? c.blue.withValues(alpha: 0.1) : c.card,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isActive ? c.blue : c.border,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.monitor, size: 16, color: isActive ? c.blue : c.textMuted),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isActive ? c.textPrimary : c.textSecondary,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                  fontSize: 13,
-                ),
+      child: Material(
+        color: isActive ? c.blue.withValues(alpha: 0.1) : c.card,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isActive ? c.blue : c.border,
               ),
-            ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.monitor,
+                    size: 16, color: isActive ? c.blue : c.textMuted),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: isActive ? c.textPrimary : c.textSecondary,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

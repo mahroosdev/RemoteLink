@@ -9,12 +9,11 @@ import '../widgets/mouse_click_icon.dart';
 import '../models/app_state.dart';
 import 'fullscreen_preview_screen.dart';
 
-/// Layout is chosen manually via [AppState.remoteLayoutMode] — never by the
-/// device/browser orientation. Listeners are scoped to the smallest widgets
-/// (ticker, header, preview, modifier groups) so ordinary control taps never
-/// rebuild the screen — that full-screen rebuild was the tap "flash".
+/// Normal Remote controls stay portrait-only. Landscape is reserved for the
+/// fullscreen preview route.
 class RemoteControlScreen extends StatefulWidget {
   final AppState state;
+
   const RemoteControlScreen({super.key, required this.state});
 
   @override
@@ -25,12 +24,8 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
   final _textController = TextEditingController();
 
   // Portrait accordions may have several groups open at once.
-  // All of this survives tab switches because IndexedStack keeps State alive.
   final Set<String> _expandedGroups = {'Basic Keys'};
-
-  // Landscape controls: segmented tool tabs + single-expansion accordion.
   int _toolTab = 0; // 0 = Mouse, 1 = Keyboard, 2 = Shortcuts
-  String? _landscapeExpandedGroup = 'Modifiers';
 
   AppState get state => widget.state;
 
@@ -48,9 +43,34 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
       state.setTransientAction('Nothing to send — type something first');
       return;
     }
-    state.addLog('Sent text: $text');
-    state.sendCommandLog('text', {'text': text});
-    _textController.clear();
+    if (_sendControlCommand('text', {'text': text}, 'Sent text: $text')) {
+      _textController.clear();
+    }
+  }
+
+  void _showFeedback(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(milliseconds: 900),
+        ),
+      );
+  }
+
+  void _toggleModifier(String key) {
+    final wasConnected = state.isConnected;
+    state.toggleModifier(key);
+    if (!wasConnected) _showFeedback('Connect to PC first');
+  }
+
+  void _releaseAllKeys() {
+    final wasConnected = state.isConnected;
+    state.releaseAllKeys();
+    if (!wasConnected) _showFeedback('Connect to PC first');
   }
 
   Future<void> _openFullscreen() async {
@@ -74,18 +94,12 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: ValueListenableBuilder<String>(
-          valueListenable: state.remoteLayoutMode,
-          builder: (context, mode, _) =>
-              mode == 'landscape' ? _buildLandscape(context, mode) : _buildPortrait(context, mode),
-        ),
+        child: _buildPortrait(context),
       ),
     );
   }
 
-  // ---------------------------------------------------------------- portrait
-
-  Widget _buildPortrait(BuildContext context, String mode) {
+  Widget _buildPortrait(BuildContext context) {
     return SingleChildScrollView(
       child: Center(
         child: ConstrainedBox(
@@ -97,211 +111,20 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _StatusHeaderCard(state: state),
-                const SizedBox(height: 8),
-                _LayoutToggleButton(mode: mode, onTap: state.toggleRemoteLayout),
                 const SizedBox(height: 12),
-
+                _FullscreenPreviewButton(onTap: _openFullscreen),
+                const SizedBox(height: 12),
                 _buildPreviewBlock(context),
-                const SizedBox(height: 16),
-
-                _buildTouchpad(height: 150),
                 const SizedBox(height: 12),
-
-                ..._buildMouseGrid(context),
-                const SizedBox(height: 16),
-
-                _buildTypingBar(context),
-                const SizedBox(height: 16),
-
-                _ShortcutGroup(
-                  title: 'Basic Keys',
-                  icon: Icons.keyboard_outlined,
-                  expanded: _expandedGroups.contains('Basic Keys'),
-                  onToggle: () => _toggleGroup('Basic Keys'),
-                  children: _basicKeyChips(),
-                ),
-                const SizedBox(height: 8),
-                // Held-modifier styling depends on interaction state.
-                ListenableBuilder(
-                  listenable: state,
-                  builder: (context, _) => _ShortcutGroup(
-                    title: 'Modifiers',
-                    icon: Icons.keyboard_command_key,
-                    badge: state.heldModifiers.isEmpty ? null : '${state.heldModifiers.length} held',
-                    expanded: _expandedGroups.contains('Modifiers'),
-                    onToggle: () => _toggleGroup('Modifiers'),
-                    children: _modifierChips(),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _ShortcutGroup(
-                  title: 'Actions',
-                  icon: Icons.flash_on_outlined,
-                  expanded: _expandedGroups.contains('Actions'),
-                  onToggle: () => _toggleGroup('Actions'),
-                  children: _actionChips(),
-                ),
-                const SizedBox(height: 8),
-                ListenableBuilder(
-                  listenable: state,
-                  builder: (context, _) => _ShortcutGroup(
-                    title: 'Function Keys',
-                    icon: Icons.functions,
-                    expanded: state.showFunctionKeys,
-                    onToggle: state.toggleFunctionKeys,
-                    children: _functionKeyChips(),
-                  ),
-                ),
+                _buildToolTabBar(),
+                const SizedBox(height: 12),
+                _buildToolTabContent(context),
               ],
             ),
           ),
         ),
       ),
     );
-  }
-
-  // --------------------------------------------------------------- landscape
-
-  Widget _buildLandscape(BuildContext context, String mode) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 600;
-        if (wide) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Main view: status + large preview + monitor selection.
-              Expanded(
-                flex: 3,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 6, 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _StatusHeaderCard(state: state),
-                      const SizedBox(height: 8),
-                      _LayoutToggleButton(mode: mode, onTap: state.toggleRemoteLayout),
-                      const SizedBox(height: 10),
-                      _buildPreviewBlock(context),
-                    ],
-                  ),
-                ),
-              ),
-              // Controls: segmented tool tabs, one tool group at a time.
-              Expanded(
-                flex: 2,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(6, 10, 12, 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildToolTabBar(),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: _buildToolTabContent(context),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          );
-        }
-        // Narrow screen, landscape controls: same tabbed tools, stacked.
-        return SingleChildScrollView(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _StatusHeaderCard(state: state),
-                    const SizedBox(height: 8),
-                    _LayoutToggleButton(mode: mode, onTap: state.toggleRemoteLayout),
-                    const SizedBox(height: 12),
-                    _buildPreviewBlock(context),
-                    const SizedBox(height: 16),
-                    _buildToolTabBar(),
-                    const SizedBox(height: 8),
-                    _buildToolTabContent(context),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildToolTabBar() {
-    return ListenableBuilder(
-      listenable: state,
-      builder: (context, _) => _ToolTabBar(
-        selected: _toolTab,
-        heldCount: state.heldModifiers.length,
-        onSelect: (i) => setState(() => _toolTab = i),
-      ),
-    );
-  }
-
-  Widget _buildToolTabContent(BuildContext context) {
-    final c = context.colors;
-    switch (_toolTab) {
-      case 1: // Keyboard
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildTypingBar(context),
-            const SizedBox(height: 12),
-            Text('BASIC KEYS',
-                style: TextStyle(color: c.textMuted, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
-            const SizedBox(height: 8),
-            Wrap(spacing: 6, runSpacing: 6, children: _basicKeyChips()),
-          ],
-        );
-      case 2: // Shortcuts — one group expanded at a time in limited height.
-        return ListenableBuilder(
-          listenable: state,
-          builder: (context, _) {
-            Widget group(String title, IconData icon, List<Widget> children, {String? badge}) => _ShortcutGroup(
-                  title: title,
-                  icon: icon,
-                  badge: badge,
-                  expanded: _landscapeExpandedGroup == title,
-                  onToggle: () => setState(() {
-                    _landscapeExpandedGroup = _landscapeExpandedGroup == title ? null : title;
-                  }),
-                  children: children,
-                );
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                group('Modifiers', Icons.keyboard_command_key, _modifierChips(),
-                    badge: state.heldModifiers.isEmpty ? null : '${state.heldModifiers.length} held'),
-                const SizedBox(height: 8),
-                group('Actions', Icons.flash_on_outlined, _actionChips()),
-                const SizedBox(height: 8),
-                group('Function Keys', Icons.functions, _functionKeyChips()),
-              ],
-            );
-          },
-        );
-      case 0: // Mouse
-      default:
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildTouchpad(height: 140),
-            const SizedBox(height: 8),
-            ..._buildMouseGrid(context),
-          ],
-        );
-    }
   }
 
   // ------------------------------------------------------------ shared parts
@@ -318,28 +141,118 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
                 isConnected: state.isConnected,
                 activeMonitor: state.activeMonitor,
               ),
-              Positioned(
-                bottom: 8,
-                right: 8,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-                  ),
-                  child: IconButton(
-                    visualDensity: VisualDensity.compact,
-                    icon: Icon(Icons.fullscreen, size: 20, color: Colors.white.withValues(alpha: 0.8)),
-                    tooltip: 'Fullscreen preview',
-                    onPressed: _openFullscreen,
-                  ),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 12),
           _buildMonitorArea(context),
         ],
+      ),
+    );
+  }
+
+  Widget _buildToolTabBar() {
+    return ListenableBuilder(
+      listenable: state,
+      builder: (context, _) => _ToolTabBar(
+        selected: _toolTab,
+        heldCount: state.heldModifiers.length,
+        onSelect: (index) => setState(() => _toolTab = index),
+      ),
+    );
+  }
+
+  Widget _buildToolTabContent(BuildContext context) {
+    switch (_toolTab) {
+      case 1:
+        return _buildKeyboardTools();
+      case 2:
+        return _buildShortcutTools();
+      case 0:
+      default:
+        return _buildMouseTools(context);
+    }
+  }
+
+  Widget _buildMouseTools(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildTouchpad(height: 150),
+        const SizedBox(height: 12),
+        ..._buildMouseGrid(context),
+      ],
+    );
+  }
+
+  Widget _buildKeyboardTools() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildTypingBar(context),
+        const SizedBox(height: 16),
+        _buildBasicKeysGroup(),
+        const SizedBox(height: 8),
+        _buildModifiersGroup(),
+      ],
+    );
+  }
+
+  Widget _buildShortcutTools() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildActionsGroup(),
+        const SizedBox(height: 8),
+        _buildFunctionKeysGroup(),
+      ],
+    );
+  }
+
+  Widget _buildBasicKeysGroup() {
+    return _ShortcutGroup(
+      title: 'Basic Keys',
+      icon: Icons.keyboard_outlined,
+      expanded: _expandedGroups.contains('Basic Keys'),
+      onToggle: () => _toggleGroup('Basic Keys'),
+      children: _basicKeyChips(),
+    );
+  }
+
+  Widget _buildModifiersGroup() {
+    return ListenableBuilder(
+      listenable: state,
+      builder: (context, _) => _ShortcutGroup(
+        title: 'Modifiers',
+        icon: Icons.keyboard_command_key,
+        badge: state.heldModifiers.isEmpty
+            ? null
+            : '${state.heldModifiers.length} HELD',
+        expanded: _expandedGroups.contains('Modifiers'),
+        onToggle: () => _toggleGroup('Modifiers'),
+        children: _modifierChips(),
+      ),
+    );
+  }
+
+  Widget _buildActionsGroup() {
+    return _ShortcutGroup(
+      title: 'Actions',
+      icon: Icons.flash_on_outlined,
+      expanded: _expandedGroups.contains('Actions'),
+      onToggle: () => _toggleGroup('Actions'),
+      children: _actionChips(),
+    );
+  }
+
+  Widget _buildFunctionKeysGroup() {
+    return ListenableBuilder(
+      listenable: state,
+      builder: (context, _) => _ShortcutGroup(
+        title: 'Function Keys',
+        icon: Icons.functions,
+        expanded: state.showFunctionKeys,
+        onToggle: state.toggleFunctionKeys,
+        children: _functionKeyChips(),
       ),
     );
   }
@@ -350,8 +263,15 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
       return MonitorSelector(
         monitorCount: state.detectedMonitorCount,
         activeMonitor: state.activeMonitor,
-        labels: state.detectedMonitors.map((monitor) => monitor.label).toList(growable: false),
-        onMonitorChanged: state.setActiveMonitor,
+        labels: state.detectedMonitors
+            .map((monitor) => monitor.label)
+            .toList(growable: false),
+        onMonitorChanged: (id) {
+          state.setActiveMonitor(id);
+          _showFeedback(state.isConnected
+              ? 'Switched to Screen $id'
+              : 'Connect to PC first');
+        },
       );
     }
     return Container(
@@ -383,21 +303,28 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
         height: height,
         showPointer: showPointer,
         onMove: (delta) {
-          state.setTransientAction('Pointer moving...');
-          state.sendCommandLog('touchpad_move', {'dx': delta.dx, 'dy': delta.dy});
+          if (state.isConnected) {
+            state.sendCommandLog(
+                'touchpad_move', {'dx': delta.dx, 'dy': delta.dy});
+          } else {
+            state.setTransientAction('Connect to PC first');
+          }
         },
-        onMoveEnd: () => state.addLog('Pointer moved'),
+        onMoveEnd: () {
+          if (state.isConnected) {
+            state.addLog('Pointer moved', updateTicker: false);
+          }
+        },
         onTap: () {
-          state.addLog('Left Click (tap)');
-          state.sendCommandLog('left_click', {'source': 'touchpad_tap'});
+          _sendControlCommand(
+              'left_click', {'source': 'touchpad_tap'}, 'Left click sent');
         },
         onDoubleTap: () {
-          state.addLog('Double Click');
-          state.sendCommandLog('left_click', {'clicks': 2});
+          _sendControlCommand('left_click', {'clicks': 2}, 'Double click sent');
         },
         onLongPress: () {
-          state.addLog('Long Press');
-          state.sendCommandLog('right_click', {'source': 'touchpad_long_press'});
+          _sendControlCommand('right_click', {'source': 'touchpad_long_press'},
+              'Right click sent');
         },
       ),
     );
@@ -410,20 +337,20 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
         children: [
           _MouseButton(
             label: 'Left Click',
-            icon: MouseClickIcon(outline: c.textSecondary, highlight: c.textPrimary),
-            onTap: () {
-              state.addLog('Left click sent');
-              state.sendCommandLog('left_click', {});
-            },
+            icon: MouseClickIcon(
+                outline: c.textSecondary, highlight: c.textPrimary),
+            onTap: () =>
+                _sendControlCommand('left_click', {}, 'Left click sent'),
           ),
           const SizedBox(width: 8),
           _MouseButton(
             label: 'Right Click',
-            icon: MouseClickIcon(right: true, outline: c.textSecondary, highlight: c.textPrimary),
-            onTap: () {
-              state.addLog('Right click sent');
-              state.sendCommandLog('right_click', {});
-            },
+            icon: MouseClickIcon(
+                right: true,
+                outline: c.textSecondary,
+                highlight: c.textPrimary),
+            onTap: () =>
+                _sendControlCommand('right_click', {}, 'Right click sent'),
           ),
         ],
       ),
@@ -432,20 +359,17 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
         children: [
           _MouseButton(
             label: 'Scroll Up',
-            icon: Icon(Icons.keyboard_arrow_up, size: 18, color: c.textSecondary),
-            onTap: () {
-              state.addLog('Scroll up');
-              state.sendCommandLog('scroll_up', {});
-            },
+            icon:
+                Icon(Icons.keyboard_arrow_up, size: 18, color: c.textSecondary),
+            onTap: () => _sendControlCommand('scroll_up', {}, 'Scroll up sent'),
           ),
           const SizedBox(width: 8),
           _MouseButton(
             label: 'Scroll Down',
-            icon: Icon(Icons.keyboard_arrow_down, size: 18, color: c.textSecondary),
-            onTap: () {
-              state.addLog('Scroll down');
-              state.sendCommandLog('scroll_down', {});
-            },
+            icon: Icon(Icons.keyboard_arrow_down,
+                size: 18, color: c.textSecondary),
+            onTap: () =>
+                _sendControlCommand('scroll_down', {}, 'Scroll down sent'),
           ),
         ],
       ),
@@ -463,8 +387,10 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
             decoration: InputDecoration(
               hintText: 'Type to PC...',
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
             ),
           ),
         ),
@@ -490,20 +416,24 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
           ShortcutKeyButton(
             label: key,
             isHeld: state.heldModifiers.contains(key),
-            onTap: () => state.toggleModifier(key),
+            onTap: () => _toggleModifier(key),
           ),
         ShortcutKeyButton(
           label: 'Release All Keys',
           isDanger: true,
-          onTap: () => state.releaseAllKeys(),
+          onTap: _releaseAllKeys,
         ),
       ];
 
   List<Widget> _actionChips() => [
-        ShortcutKeyButton(label: 'Cut', onTap: () => _sendShortcut('Cut', 'Ctrl+X')),
-        ShortcutKeyButton(label: 'Copy', onTap: () => _sendShortcut('Copy', 'Ctrl+C')),
-        ShortcutKeyButton(label: 'Paste', onTap: () => _sendShortcut('Paste', 'Ctrl+V')),
-        ShortcutKeyButton(label: 'Alt+Tab', onTap: () => _sendShortcut('Alt+Tab', 'Alt+Tab')),
+        ShortcutKeyButton(
+            label: 'Cut', onTap: () => _sendShortcut('Cut', 'Ctrl+X')),
+        ShortcutKeyButton(
+            label: 'Copy', onTap: () => _sendShortcut('Copy', 'Ctrl+C')),
+        ShortcutKeyButton(
+            label: 'Paste', onTap: () => _sendShortcut('Paste', 'Ctrl+V')),
+        ShortcutKeyButton(
+            label: 'Alt+Tab', onTap: () => _sendShortcut('Alt+Tab', 'Alt+Tab')),
       ];
 
   List<Widget> _functionKeyChips() => List.generate(
@@ -516,123 +446,26 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
       );
 
   void _sendKey(String key) {
-    state.addLog('$key pressed');
-    state.sendCommandLog('key', {'key': key, 'state': 'pressed'});
+    _sendControlCommand('key', {'key': key, 'state': 'pressed'}, '$key sent');
   }
 
   void _sendShortcut(String label, String shortcut) {
-    state.addLog('$label ($shortcut) sent');
-    state.sendCommandLog('shortcut', {'label': label, 'shortcut': shortcut});
+    _sendControlCommand('shortcut', {'label': label, 'shortcut': shortcut},
+        '$label ($shortcut) sent');
   }
-}
 
-/// Manual layout switch: "Landscape Controls" in portrait mode and
-/// "Portrait Controls" in landscape mode.
-class _LayoutToggleButton extends StatelessWidget {
-  final String mode;
-  final VoidCallback onTap;
-
-  const _LayoutToggleButton({required this.mode, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final label = mode == 'portrait' ? 'Landscape Controls' : 'Portrait Controls';
-    return InkWell(
-      borderRadius: BorderRadius.circular(10),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: c.card,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: c.border),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.screen_rotation, size: 15, color: c.blue),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.textPrimary),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ToolTabBar extends StatelessWidget {
-  final int selected;
-  final int heldCount;
-  final ValueChanged<int> onSelect;
-
-  const _ToolTabBar({required this.selected, required this.heldCount, required this.onSelect});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    Widget segment(int index, String label, IconData icon, {bool showDot = false}) {
-      final isActive = selected == index;
-      return Expanded(
-        child: GestureDetector(
-          onTap: () => onSelect(index),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: isActive ? c.blue.withValues(alpha: 0.12) : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: isActive ? c.blue : Colors.transparent),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 14, color: isActive ? c.blue : c.textMuted),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                      color: isActive ? c.textPrimary : c.textSecondary,
-                    ),
-                  ),
-                ),
-                if (showDot) ...[
-                  const SizedBox(width: 4),
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(shape: BoxShape.circle, color: c.blue),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      );
+  bool _sendControlCommand(
+      String command, Map<String, dynamic> details, String successMessage) {
+    if (!state.sendCommandLog(command, details)) {
+      final message = state.isConnected
+          ? 'Connection lost. Reconnect to PC.'
+          : 'Connect to PC first';
+      state.addLog(message);
+      _showFeedback(message);
+      return false;
     }
-
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: c.card,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: c.border),
-      ),
-      child: Row(
-        children: [
-          segment(0, 'Mouse', Icons.mouse_outlined),
-          segment(1, 'Keyboard', Icons.keyboard_alt_outlined),
-          segment(2, 'Shortcuts', Icons.bolt_outlined, showDot: heldCount > 0),
-        ],
-      ),
-    );
+    state.addLog(successMessage, updateTicker: false);
+    return true;
   }
 }
 
@@ -675,10 +508,15 @@ class _StatusHeaderCard extends StatelessWidget {
                       children: [
                         Text(
                           isConnected ? 'Connected' : 'Disconnected',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: c.textPrimary),
+                          style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: c.textPrimary),
                         ),
                         if (isConnected)
-                          Text(state.hostIp, style: TextStyle(fontSize: 11, color: c.textMuted)),
+                          Text(state.hostIp,
+                              style:
+                                  TextStyle(fontSize: 11, color: c.textMuted)),
                       ],
                     ),
                   ),
@@ -687,7 +525,8 @@ class _StatusHeaderCard extends StatelessWidget {
                     const SizedBox(width: 4),
                   ],
                   IconButton(
-                    icon: Icon(Icons.power_settings_new, color: isConnected ? c.red : c.textMuted),
+                    icon: Icon(Icons.power_settings_new,
+                        color: isConnected ? c.red : c.textMuted),
                     tooltip: isConnected ? 'Disconnect' : 'Not connected',
                     onPressed: isConnected ? () => state.disconnect() : null,
                   ),
@@ -720,12 +559,138 @@ class _StatusHeaderCard extends StatelessWidget {
   }
 }
 
+class _FullscreenPreviewButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _FullscreenPreviewButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Material(
+      color: c.card,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: c.border),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.screen_rotation, size: 16, color: c.blue),
+              const SizedBox(width: 8),
+              Text(
+                'Fullscreen Preview',
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ToolTabBar extends StatelessWidget {
+  final int selected;
+  final int heldCount;
+  final ValueChanged<int> onSelect;
+
+  const _ToolTabBar({
+    required this.selected,
+    required this.heldCount,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
+    Widget segment(int index, String label, IconData icon,
+        {bool showDot = false}) {
+      final isActive = selected == index;
+      return Expanded(
+        child: Material(
+          color: isActive ? c.blue.withValues(alpha: 0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => onSelect(index),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border:
+                    Border.all(color: isActive ? c.blue : Colors.transparent),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 14, color: isActive ? c.blue : c.textMuted),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight:
+                            isActive ? FontWeight.w700 : FontWeight.w500,
+                        color: isActive ? c.textPrimary : c.textSecondary,
+                      ),
+                    ),
+                  ),
+                  if (showDot) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration:
+                          BoxDecoration(shape: BoxShape.circle, color: c.blue),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: c.card,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: c.border),
+      ),
+      child: Row(
+        children: [
+          segment(0, 'Mouse', Icons.mouse_outlined),
+          segment(1, 'Keyboard', Icons.keyboard_alt_outlined),
+          segment(2, 'Shortcuts', Icons.bolt_outlined, showDot: heldCount > 0),
+        ],
+      ),
+    );
+  }
+}
+
 class _ShortcutGroup extends StatelessWidget {
   final String title;
   final IconData icon;
   final String? badge;
   final bool expanded;
-  final VoidCallback onToggle;
+  final VoidCallback? onToggle;
   final List<Widget> children;
 
   const _ShortcutGroup({
@@ -733,7 +698,7 @@ class _ShortcutGroup extends StatelessWidget {
     required this.icon,
     this.badge,
     required this.expanded,
-    required this.onToggle,
+    this.onToggle,
     required this.children,
   });
 
@@ -749,34 +714,7 @@ class _ShortcutGroup extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: onToggle,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              child: Row(
-                children: [
-                  Icon(icon, size: 16, color: c.textMuted),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: c.textPrimary),
-                    ),
-                  ),
-                  if (badge != null) ...[
-                    StatusPill(label: badge!, color: c.blue),
-                    const SizedBox(width: 8),
-                  ],
-                  AnimatedRotation(
-                    turns: expanded ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 180),
-                    child: Icon(Icons.keyboard_arrow_down, size: 18, color: c.textMuted),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          _buildHeader(context, c),
           if (expanded)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
@@ -786,39 +724,107 @@ class _ShortcutGroup extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildHeader(BuildContext context, AppColors c) {
+    final header = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: c.textMuted),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: c.textPrimary),
+            ),
+          ),
+          _BadgeSlot(label: badge, color: c.blue),
+          if (onToggle != null) ...[
+            const SizedBox(width: 8),
+            AnimatedRotation(
+              turns: expanded ? 0.5 : 0,
+              duration: const Duration(milliseconds: 180),
+              child:
+                  Icon(Icons.keyboard_arrow_down, size: 18, color: c.textMuted),
+            ),
+          ],
+        ],
+      ),
+    );
+    if (onToggle == null) return header;
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onToggle,
+      child: header,
+    );
+  }
+}
+
+class _BadgeSlot extends StatelessWidget {
+  final String? label;
+  final Color color;
+
+  const _BadgeSlot({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 58,
+      height: 24,
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: AnimatedOpacity(
+          opacity: label == null ? 0 : 1,
+          duration: const Duration(milliseconds: 120),
+          child: StatusPill(label: label ?? '0 HELD', color: color),
+        ),
+      ),
+    );
+  }
 }
 
 class _MouseButton extends StatelessWidget {
   final String label;
   final Widget icon;
   final VoidCallback onTap;
-  const _MouseButton({required this.label, required this.icon, required this.onTap});
+  const _MouseButton(
+      {required this.label, required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: c.card,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: c.border),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(height: 20, child: Center(child: icon)),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: c.textMuted),
-              ),
-            ],
+      child: Material(
+        color: c.card,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: c.border),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(height: 20, child: Center(child: icon)),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: c.textMuted),
+                ),
+              ],
+            ),
           ),
         ),
       ),

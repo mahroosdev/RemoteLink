@@ -1,11 +1,11 @@
 {
-    "name": "remotelink_mobile",
-    "short_name": "remotelink_mobile",
+    "name": "RemoteLink",
+    "short_name": "RemoteLink",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0B0C0F",
+    "theme_color": "#0B0C0F",
+    "description": "RemoteLink Android client.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

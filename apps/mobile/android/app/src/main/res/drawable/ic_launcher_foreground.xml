@@ -1,31 +1,27 @@
-<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    
+    <!-- Link Ring Symbol (Black) - SCALED DOWN for better safe zone -->
+    <!-- Centered in 108x108. -->
+    
+    <!-- Thin Circular Ring -->
     <path
-        android:fillColor="#121826"
-        android:strokeColor="#3B82F6"
-        android:strokeWidth="4"
-        android:pathData="M24,18 L84,18 Q90,18 90,24 L90,84 Q90,90 84,90 L24,90 Q18,90 18,84 L18,24 Q18,18 24,18 Z" />
+        android:strokeColor="#000000"
+        android:strokeWidth="4.5"
+        android:pathData="M54,54m-22,0a22,22 0,1 1,44,0a22,22 0,1 1,-44,0" />
+    
+    <!-- Bold Angled Link/Chevron Marks - Proportionally scaled -->
+    <!-- Left Chevron -->
     <path
-        android:fillColor="@android:color/transparent"
-        android:strokeColor="#F5F7FA"
-        android:strokeWidth="4"
-        android:pathData="M31,32 L66,32 L66,57 L31,57 Z" />
+        android:fillColor="#000000"
+        android:pathData="M49,46 L42,54 L49,62 L52,59 L46,54 L52,49 Z" />
+    
+    <!-- Right Chevron -->
     <path
-        android:strokeColor="#94A3B8"
-        android:strokeWidth="3"
-        android:strokeLineCap="round"
-        android:fillColor="@android:color/transparent"
-        android:pathData="M48.5,57 L48.5,65 M39,66 L58,66" />
-    <path
-        android:fillColor="#0B0C0F"
-        android:strokeColor="#3B82F6"
-        android:strokeWidth="4"
-        android:pathData="M62,52 L81,52 L81,86 L62,86 Z" />
-    <path
-        android:fillColor="#F5F7FA"
-        android:pathData="M70,79 a2,2 0,1 0,4 0 a2,2 0,1 0,-4 0" />
+        android:fillColor="#000000"
+        android:pathData="M59,46 L66,54 L59,62 L56,59 L62,54 L56,49 Z" />
+
 </vector>

@@ -14,13 +14,17 @@ const remoteLinkServer = new RemoteLinkServer((state) => {
   })
 })
 
+function getAppIconPath() {
+  return path.join(process.env.VITE_PUBLIC!, 'app-icon.ico')
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1000,
     minHeight: 700,
-    icon: path.join(process.env.VITE_PUBLIC!, 'electron-vite.svg'),
+    icon: getAppIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,

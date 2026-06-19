@@ -5,9 +5,21 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "electron": "electron .",
     "package": "npm run build && electron-builder",
     "preview": "vite preview",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\""
+  },
+  "build": {
+    "appId": "com.nexadigital.remotelink",
+    "productName": "RemoteLink",
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "win": {
+      "icon": "public/app-icon.ico"
+    }
   },
   "dependencies": {
     "react": "^18.2.0",

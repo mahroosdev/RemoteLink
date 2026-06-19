@@ -1,4 +1,4 @@
-package com.nexadigital.remotelink_mobile
+package com.nexadigital.remotelink
 
 import io.flutter.embedding.android.FlutterActivity
 

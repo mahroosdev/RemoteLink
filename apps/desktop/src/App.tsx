@@ -82,8 +82,8 @@ function App() {
   }, []);
 
   const connectedDevice = engineState.connectedDevice ?? mockConnectedDevice;
-  const allHostIps = [...engineState.hostIpCandidates, ...engineState.hostIpFallbacks];
-  const displayHostIp = selectedHostIp && allHostIps.includes(selectedHostIp)
+  const selectableHostIps = engineState.hostIpCandidates;
+  const displayHostIp = selectedHostIp && selectableHostIps.includes(selectedHostIp)
     ? selectedHostIp
     : engineState.hostIp;
   const logs = engineState.activityLog;

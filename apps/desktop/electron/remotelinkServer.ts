@@ -78,6 +78,23 @@ interface PendingSocket {
   request: PendingPairingRequest
 }
 
+interface IpCandidate {
+  address: string
+  adapterName: string
+  score: number
+  hasGateway?: boolean
+  active?: boolean
+  ignoredReason?: string
+}
+
+interface IpDetectionResult {
+  recommended: string[]
+  fallback: string[]
+  detected: string[]
+  ignored: Array<{ address: string; adapterName: string; reason: string }>
+  source: 'node' | 'powershell' | 'node+powershell'
+}
+
 const monitorState: EngineMonitor[] = [
   {
     id: 1,
@@ -138,10 +155,22 @@ export class RemoteLinkServer {
     const localIps = detectLocalIPv4Candidates()
     this.state.hostIpCandidates = localIps.recommended
     this.state.hostIpFallbacks = localIps.fallback
-    this.state.hostIp = localIps.recommended[0] ?? localIps.fallback[0] ?? 'Local IP unavailable'
+    this.state.hostIp = localIps.recommended[0] ?? 'Local IP unavailable'
     this.state.error = undefined
     this.state.pairingCode = generatePairingCode()
     this.addLog('Remote Engine starting on local network', 'System', 'Info', false)
+    this.addLog(`Detected interfaces (${localIps.source}): ${localIps.detected.join(', ') || 'none'}`, 'System', 'Info', false)
+    for (const ignored of localIps.ignored.slice(0, 6)) {
+      this.addLog(`Ignored ${ignored.address} on ${ignored.adapterName}: ${ignored.reason}`, 'System', 'Warning', false)
+    }
+    this.addLog(
+      this.state.hostIp === 'Local IP unavailable'
+        ? 'No pairable Wi-Fi/Ethernet Host IP detected'
+        : `Selected recommended Host IP ${this.state.hostIp}`,
+      'System',
+      this.state.hostIp === 'Local IP unavailable' ? 'Warning' : 'Success',
+      false,
+    )
     this.emit()
 
     try {
@@ -170,7 +199,10 @@ export class RemoteLinkServer {
       this.server.on('error', (error: Error & { code?: string }) => this.failServer(error))
       this.state.engineActive = true
       this.state.serverStatus = 'listening'
-      this.addLog(`Remote Engine listening on ${this.state.hostIp}:${REMOTELINK_WS_PORT}`, 'System', 'Success')
+      const phoneUrl = this.state.hostIp === 'Local IP unavailable'
+        ? `ws://<host-ip>:${REMOTELINK_WS_PORT}`
+        : `ws://${this.state.hostIp}:${REMOTELINK_WS_PORT}`
+      this.addLog(`WebSocket listening on 0.0.0.0:${REMOTELINK_WS_PORT}; phone URL ${phoneUrl}`, 'System', 'Success')
     } catch (error) {
       this.server?.close()
       this.server = null
@@ -284,6 +316,7 @@ export class RemoteLinkServer {
       ws.close()
       return
     }
+    this.addLog(`Incoming mobile connection from ${ip}`, 'Pairing', 'Info')
 
     ws.on('message', (data) => {
       const message = parseMessage(data.toString())
@@ -325,6 +358,7 @@ export class RemoteLinkServer {
   }
 
   private handlePairingRequest(ws: WebSocketType, ip: string, payload?: PairingRequestPayload) {
+    this.addLog(`Pairing request received from ${ip}`, 'Pairing', 'Info')
     if (!payload?.deviceId || !payload.deviceName || !payload.pairingCode) {
       this.send(ws, MessageType.PairingDenied, { reason: 'Malformed pairing request' }, payload?.deviceId)
       ws.close()
@@ -438,43 +472,73 @@ export class RemoteLinkServer {
   }
 }
 
-function detectLocalIPv4Candidates() {
-  if (process.platform === 'win32') {
-    const windowsCandidates = detectWindowsIPv4Candidates()
-    if (windowsCandidates.recommended.length > 0 || windowsCandidates.fallback.length > 0) return windowsCandidates
+function detectLocalIPv4Candidates(): IpDetectionResult {
+  const nodeCandidates = detectNodeIPv4Candidates()
+  if (nodeCandidates.recommended.length > 0 || process.platform !== 'win32') {
+    return nodeCandidates
   }
 
-  const networks = os.networkInterfaces()
-  const candidates: Array<{ address: string; score: number; virtual: boolean }> = []
-  for (const [name, entries] of Object.entries(networks)) {
-    const adapterName = name.toLowerCase()
-    for (const entry of entries ?? []) {
-      if (entry.family !== 'IPv4' || entry.internal || !isPrivateIPv4(entry.address)) continue
-      const virtual = isVirtualAdapter(adapterName)
-      const virtualPenalty = virtual ? -100 : 0
-      const lanScore = entry.address.startsWith('192.168.') ? 30
-        : entry.address.startsWith('10.') ? 20
-          : is172Private(entry.address) ? 10
-            : 0
-      const adapterScore = /wi-?fi|wireless|ethernet|lan/i.test(adapterName) ? 20 : 0
-      candidates.push({ address: entry.address, score: lanScore + adapterScore + virtualPenalty, virtual })
+  const windowsCandidates = detectWindowsIPv4Candidates()
+  if (windowsCandidates.recommended.length > 0) {
+    return {
+      recommended: windowsCandidates.recommended,
+      fallback: uniqueStrings([...nodeCandidates.fallback, ...windowsCandidates.fallback]),
+      detected: uniqueStrings([...nodeCandidates.detected, ...windowsCandidates.detected]),
+      ignored: [...nodeCandidates.ignored, ...windowsCandidates.ignored],
+      source: 'node+powershell',
     }
   }
-  const sorted = candidates
-    .sort((a, b) => b.score - a.score || a.address.localeCompare(b.address))
-  const recommended = sorted.filter((candidate) => !candidate.virtual).map((candidate) => candidate.address)
-  const fallback = sorted.filter((candidate) => candidate.virtual).map((candidate) => candidate.address)
-  return { recommended, fallback }
+
+  return {
+    ...nodeCandidates,
+    fallback: uniqueStrings([...nodeCandidates.fallback, ...windowsCandidates.fallback]),
+    detected: uniqueStrings([...nodeCandidates.detected, ...windowsCandidates.detected]),
+    ignored: [...nodeCandidates.ignored, ...windowsCandidates.ignored],
+  }
 }
 
-function detectWindowsIPv4Candidates() {
+function detectNodeIPv4Candidates(): IpDetectionResult {
+  const networks = os.networkInterfaces()
+  const candidates: IpCandidate[] = []
+  const ignored: IpDetectionResult['ignored'] = []
+  const detected: string[] = []
+
+  for (const [name, entries] of Object.entries(networks)) {
+    const adapterName = name
+    for (const entry of entries ?? []) {
+      if (entry.family !== 'IPv4') continue
+      detected.push(`${adapterName} ${entry.address}`)
+      const candidate = classifyIpCandidate(entry.address, adapterName, {
+        active: !entry.internal,
+      })
+      if (candidate.ignoredReason) {
+        ignored.push({ address: candidate.address, adapterName, reason: candidate.ignoredReason })
+      } else {
+        candidates.push(candidate)
+      }
+    }
+  }
+
+  const sorted = uniqueCandidates(candidates)
+    .sort((a, b) => b.score - a.score || a.address.localeCompare(b.address))
+  return {
+    recommended: sorted.map((candidate) => candidate.address),
+    fallback: ignored
+      .filter(isAdvancedFallback)
+      .map((item) => item.address),
+    detected,
+    ignored,
+    source: 'node',
+  }
+}
+
+function detectWindowsIPv4Candidates(): IpDetectionResult {
   try {
     const script = [
       '$items = Get-NetIPConfiguration | ForEach-Object {',
-      '  $ip = $_.IPv4Address.IPAddress | Select-Object -First 1',
-      '  if ($ip) {',
+      '  foreach ($addr in $_.IPv4Address) {',
       '    [PSCustomObject]@{',
-      '      Address = $ip',
+      '      Address = $addr.IPAddress',
       '      Alias = $_.InterfaceAlias',
       '      Description = $_.InterfaceDescription',
       '      HasGateway = [bool]$_.IPv4DefaultGateway',
@@ -486,38 +550,109 @@ function detectWindowsIPv4Candidates() {
     ].join('\n')
     const raw = execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], {
       encoding: 'utf8',
-      timeout: 3000,
+      timeout: 800,
       windowsHide: true,
     }).trim()
-    if (!raw) return { recommended: [], fallback: [] }
+    if (!raw) return emptyDetection('powershell')
 
     const parsed = JSON.parse(raw)
     const rows = Array.isArray(parsed) ? parsed : [parsed]
+    const realRows = rows.filter((row: any) => {
+      const address = String(row.Address ?? '')
+      const adapterText = `${row.Alias ?? ''} ${row.Description ?? ''}`
+      return isPairablePrivateIPv4(address) && !isVirtualAdapter(adapterText)
+    })
+    const hasRealGateway = realRows.some((row: any) => row.HasGateway === true)
+    const ignored: IpDetectionResult['ignored'] = []
+    const detected: string[] = []
     const candidates = rows
       .map((row: any) => {
         const address = String(row.Address ?? '')
-        const adapterText = `${row.Alias ?? ''} ${row.Description ?? ''}`.toLowerCase()
-        const status = String(row.Status ?? '').toLowerCase()
-        const virtual = isVirtualAdapter(adapterText)
-        const hasGateway = row.HasGateway === true
-        const lanScore = address.startsWith('192.168.') ? 30 : address.startsWith('10.') ? 25 : is172Private(address) ? 20 : 0
-        const adapterScore = /wi-?fi|wireless|ethernet|lan|hotspot/i.test(adapterText) ? 25 : 0
-        const gatewayScore = hasGateway ? 100 : 0
-        const activeScore = status === 'up' ? 20 : 0
-        const virtualPenalty = virtual ? -200 : 0
-        return { address, virtual, score: gatewayScore + activeScore + adapterScore + lanScore + virtualPenalty }
+        const adapterName = `${row.Alias ?? ''}`.trim() || `${row.Description ?? ''}`.trim() || 'Unknown adapter'
+        const status = String(row.Status ?? '')
+        detected.push(`${adapterName} ${address}`)
+        return classifyIpCandidate(address, adapterName, {
+          hasGateway: row.HasGateway === true,
+          active: status.toLowerCase() === 'up',
+          ignoreNoGateway: hasRealGateway,
+        })
       })
-      .filter((candidate) => isPrivateIPv4(candidate.address))
+      .filter((candidate) => {
+        if (candidate.ignoredReason) {
+          ignored.push({
+            address: candidate.address,
+            adapterName: candidate.adapterName,
+            reason: candidate.ignoredReason,
+          })
+          return false
+        }
+        return true
+      })
       .sort((a, b) => b.score - a.score || a.address.localeCompare(b.address))
 
     return {
-      recommended: candidates.filter((candidate) => !candidate.virtual).map((candidate) => candidate.address),
-      fallback: candidates.filter((candidate) => candidate.virtual).map((candidate) => candidate.address),
+      recommended: uniqueStrings(candidates.map((candidate) => candidate.address)),
+      fallback: uniqueStrings(ignored
+        .filter(isAdvancedFallback)
+        .map((item) => item.address)),
+      detected,
+      ignored,
+      source: 'powershell',
     }
   } catch (error) {
-    console.warn('[RemoteLink] Falling back to Node network interface IP detection:', error)
-    return { recommended: [], fallback: [] }
+    const message = error instanceof Error ? error.message : String(error)
+    return {
+      ...emptyDetection('powershell'),
+      ignored: [{ address: 'PowerShell', adapterName: 'Get-NetIPConfiguration', reason: `optional detection skipped: ${message}` }],
+    }
   }
+}
+
+function classifyIpCandidate(
+  address: string,
+  adapterName: string,
+  options: { hasGateway?: boolean; active?: boolean; ignoreNoGateway?: boolean } = {},
+): IpCandidate {
+  const normalized = normalizeIp(address)
+  const adapterText = adapterName.toLowerCase()
+  const ignoredReason = ignoredIpReason(normalized, adapterText, options)
+  if (ignoredReason) {
+    return { address: normalized, adapterName, score: 0, ignoredReason }
+  }
+
+  let score = 0
+  if (/wi-?fi|wireless|wlan|hotspot/i.test(adapterText)) score += 400
+  else if (/ethernet|lan/i.test(adapterText)) score += 300
+  else score += 100
+  if (options.hasGateway) score += 200
+  if (options.active) score += 80
+  if (normalized.startsWith('10.')) score += 40
+  else if (normalized.startsWith('192.168.')) score += 30
+  else if (is172Private(normalized)) score += 20
+
+  return {
+    address: normalized,
+    adapterName,
+    score,
+    hasGateway: options.hasGateway,
+    active: options.active,
+  }
+}
+
+function ignoredIpReason(
+  address: string,
+  adapterText: string,
+  options: { hasGateway?: boolean; active?: boolean; ignoreNoGateway?: boolean },
+) {
+  if (!address) return 'missing IPv4 address'
+  if (address === '127.0.0.1' || address.startsWith('127.')) return 'localhost is not reachable from phone'
+  if (address.startsWith('169.254.')) return 'link-local address is not phone-pairable'
+  if (address.startsWith('192.168.56.')) return 'Virtual adapter - not for phone pairing'
+  if (!isPairablePrivateIPv4(address)) return 'not a private LAN/hotspot IPv4 address'
+  if (isVirtualAdapter(adapterText)) return 'Virtual adapter - not for phone pairing'
+  if (options.active === false) return 'adapter is disconnected'
+  if (options.ignoreNoGateway && !options.hasGateway) return 'adapter has no default gateway'
+  return undefined
 }
 
 function normalizeIp(ip: string) {
@@ -528,12 +663,42 @@ function generatePairingCode() {
   return crypto.randomInt(100000, 1000000).toString()
 }
 
-function isPrivateIPv4(address: string) {
-  return address.startsWith('10.') || address.startsWith('192.168.') || is172Private(address)
+function emptyDetection(source: IpDetectionResult['source']): IpDetectionResult {
+  return {
+    recommended: [],
+    fallback: [],
+    detected: [],
+    ignored: [],
+    source,
+  }
+}
+
+function uniqueCandidates(candidates: IpCandidate[]) {
+  const seen = new Set<string>()
+  return candidates.filter((candidate) => {
+    if (seen.has(candidate.address)) return false
+    seen.add(candidate.address)
+    return true
+  })
+}
+
+function uniqueStrings(values: string[]) {
+  return [...new Set(values.filter(Boolean))]
+}
+
+function isAdvancedFallback(item: { address: string; reason: string }) {
+  return item.reason.includes('Virtual adapter') &&
+    (item.address.startsWith('192.168.56.') || isPairablePrivateIPv4(item.address))
+}
+
+function isPairablePrivateIPv4(address: string) {
+  return address.startsWith('10.') ||
+    (address.startsWith('192.168.') && !address.startsWith('192.168.56.')) ||
+    is172Private(address)
 }
 
 function isVirtualAdapter(adapterName: string) {
-  return /virtualbox|vmware|hyper-v|wsl|docker|loopback|bluetooth|teredo|vethernet|virtual|tap|npcap/i.test(adapterName)
+  return /virtualbox|host-only|vmware|hyper-v|wsl|docker|loopback|bluetooth|teredo|vethernet|virtual|tap|npcap/i.test(adapterName)
 }
 
 function is172Private(address: string) {

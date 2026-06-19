@@ -8,7 +8,8 @@ import '../models/app_state.dart';
 class ConnectScreen extends StatefulWidget {
   final AppState state;
   final VoidCallback onConnected;
-  const ConnectScreen({super.key, required this.state, required this.onConnected});
+  const ConnectScreen(
+      {super.key, required this.state, required this.onConnected});
 
   @override
   State<ConnectScreen> createState() => _ConnectScreenState();
@@ -49,7 +50,9 @@ class _ConnectScreenState extends State<ConnectScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(
-        content: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+        content: Text(message,
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.w500)),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
@@ -61,12 +64,23 @@ class _ConnectScreenState extends State<ConnectScreen> {
     return ip.split('.').every((octet) => (int.tryParse(octet) ?? 256) <= 255);
   }
 
+  String? _hostIpWarning(String ip) {
+    final value = ip.trim();
+    if (value.startsWith('192.168.56.') ||
+        value.startsWith('127.') ||
+        value.startsWith('169.254.')) {
+      return 'This looks like a virtual or local-only IP. Use your Wi-Fi/hotspot IP instead.';
+    }
+    return null;
+  }
+
   Future<void> _connect() async {
     final ip = _ipController.text.trim();
     final code = _codeController.text.trim();
 
     if (!_isValidIp(ip)) {
-      _showSnack('Enter a valid Host IP, e.g. 192.168.0.24', context.colors.red);
+      _showSnack(
+          'Enter a valid Host IP, e.g. 192.168.0.24', context.colors.red);
       return;
     }
     if (!_codePattern.hasMatch(code)) {
@@ -120,30 +134,40 @@ class _ConnectScreenState extends State<ConnectScreen> {
           builder: (context, _) {
             final c = context.colors;
             final isConnected = widget.state.isConnected;
-            final isConnecting = widget.state.status == ConnectionStatus.connecting ||
-                widget.state.status == ConnectionStatus.waitingApproval;
+            final isConnecting =
+                widget.state.status == ConnectionStatus.connecting ||
+                    widget.state.status == ConnectionStatus.waitingApproval;
 
             final form = _buildForm(context, c, isConnected, isConnecting);
-            final statusCard = _buildStatusCard(context, c, isConnected, isConnecting);
+            final statusCard =
+                _buildStatusCard(context, c, isConnected, isConnecting);
 
             return LayoutBuilder(
               builder: (context, constraints) {
                 if (constraints.maxWidth >= 720) {
                   // Landscape / wide: form beside the status card.
                   return SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 32.0, vertical: 24.0),
                     child: Center(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 920),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 420), child: form)),
+                            Expanded(
+                                child: ConstrainedBox(
+                                    constraints:
+                                        const BoxConstraints(maxWidth: 420),
+                                    child: form)),
                             const SizedBox(width: 48),
                             Expanded(
                               child: Padding(
                                 padding: const EdgeInsets.only(top: 24),
-                                child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 380), child: statusCard),
+                                child: ConstrainedBox(
+                                    constraints:
+                                        const BoxConstraints(maxWidth: 380),
+                                    child: statusCard),
                               ),
                             ),
                           ],
@@ -153,7 +177,8 @@ class _ConnectScreenState extends State<ConnectScreen> {
                   );
                 }
                 return SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 48.0),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 32.0, vertical: 48.0),
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 420),
@@ -175,103 +200,138 @@ class _ConnectScreenState extends State<ConnectScreen> {
     );
   }
 
-  Widget _buildForm(BuildContext context, AppColors c, bool isConnected, bool isConnecting) {
+  Widget _buildForm(
+      BuildContext context, AppColors c, bool isConnected, bool isConnecting) {
+    final hostIpWarning = _hostIpWarning(_ipController.text);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const AppLogo(size: 80),
-        const SizedBox(height: 24),
-        Text('Remote Link', style: Theme.of(context).textTheme.headlineLarge),
-        Text('Enterprise Remote Utility', style: Theme.of(context).textTheme.labelSmall),
-        const SizedBox(height: 40),
-
+        const AppLogo(size: 100),
+        const SizedBox(height: 32),
+        Text('REMOTELINK',
+            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                  letterSpacing: -0.5,
+                  fontWeight: FontWeight.w700,
+                )),
+        const SizedBox(height: 4),
+        Text('PRO UTILITY',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  letterSpacing: 1.5,
+                  color: c.blue.withValues(alpha: 0.8),
+                  fontWeight: FontWeight.w600,
+                )),
+        const SizedBox(height: 48),
         TextField(
-                    controller: _ipController,
-                    onChanged: widget.state.setHostIp,
-                    decoration: const InputDecoration(
-                      labelText: 'PC Host IP',
-                      hintText: 'Enter PC Host IP',
-                      helperText: 'Use the Recommended Host IP from the desktop app. If the phone cannot connect, try another detected LAN IP.',
-                      helperMaxLines: 2,
-                      prefixIcon: Icon(Icons.wifi, size: 20),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _codeController,
-                    onChanged: widget.state.setPairingCode,
-                    decoration: const InputDecoration(
-                      labelText: 'Pairing Code',
-                      hintText: '6-digit code',
-                      prefixIcon: Icon(Icons.lock_outline, size: 20),
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 32),
-
-                  if (!isConnected) ...[
-                    PrimaryButton(
-                      label: isConnecting ? 'Connecting...' : 'Connect to PC',
-                      onPressed: isConnecting ? null : _connect,
-                    ),
-                    const SizedBox(height: 16),
-                    if (_isScanning)
-                      Column(
-                        children: [
-                          CircularProgressIndicator(strokeWidth: 2, color: c.blue),
-                          const SizedBox(height: 8),
-                          Text('Scanning local network...', style: TextStyle(fontSize: 12, color: c.textMuted)),
-                        ],
-                      )
-                    else ...[
-                      if (_scanFoundNothing) ...[
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: c.card,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: c.border),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.search_off, size: 16, color: c.textMuted),
-                              const SizedBox(width: 10),
-                              Flexible(
-                                child: Text('No RemoteLink desktop found',
-                                    style: TextStyle(fontSize: 13, color: c.textSecondary)),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      TextButton(
-                        onPressed: _scanDevices,
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.search, size: 18),
-                            SizedBox(width: 8),
-                            Flexible(child: Text('Scan for local devices', overflow: TextOverflow.ellipsis)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ] else ...[
-                    PrimaryButton(
-                      label: 'Disconnect from PC',
-                      isDanger: true,
-                      onPressed: () => widget.state.disconnect(),
+          controller: _ipController,
+          onChanged: (value) {
+            widget.state.setHostIp(value);
+            setState(() {});
+          },
+          decoration: const InputDecoration(
+            labelText: 'PC Host IP',
+            hintText: 'Enter PC Host IP',
+            helperText:
+                'Use the Recommended Host IP from the desktop app. If the phone cannot connect, try another detected LAN IP.',
+            helperMaxLines: 2,
+            prefixIcon: Icon(Icons.wifi, size: 20),
+          ),
+        ),
+        if (hostIpWarning != null) ...[
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.warning_amber_rounded, size: 16, color: c.amber),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  hostIpWarning,
+                  style: TextStyle(color: c.amber, fontSize: 11, height: 1.35),
+                ),
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 16),
+        TextField(
+          controller: _codeController,
+          onChanged: widget.state.setPairingCode,
+          decoration: const InputDecoration(
+            labelText: 'Pairing Code',
+            hintText: '6-digit code',
+            prefixIcon: Icon(Icons.lock_outline, size: 20),
+          ),
+          keyboardType: TextInputType.number,
+        ),
+        const SizedBox(height: 32),
+        if (!isConnected) ...[
+          PrimaryButton(
+            label: isConnecting ? 'Connecting...' : 'Connect to PC',
+            onPressed: isConnecting ? null : _connect,
+          ),
+          const SizedBox(height: 16),
+          if (_isScanning)
+            Column(
+              children: [
+                CircularProgressIndicator(strokeWidth: 2, color: c.blue),
+                const SizedBox(height: 8),
+                Text('Scanning local network...',
+                    style: TextStyle(fontSize: 12, color: c.textMuted)),
+              ],
+            )
+          else ...[
+            if (_scanFoundNothing) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: c.card,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: c.border),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.search_off, size: 16, color: c.textMuted),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text('No RemoteLink desktop found',
+                          style:
+                              TextStyle(fontSize: 13, color: c.textSecondary)),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            TextButton(
+              onPressed: _scanDevices,
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.search, size: 18),
+                  SizedBox(width: 8),
+                  Flexible(
+                      child: Text('Scan for local devices',
+                          overflow: TextOverflow.ellipsis)),
+                ],
+              ),
+            ),
+          ],
+        ] else ...[
+          PrimaryButton(
+            label: 'Disconnect from PC',
+            isDanger: true,
+            onPressed: () => widget.state.disconnect(),
+          ),
+        ],
       ],
     );
   }
 
-  Widget _buildStatusCard(BuildContext context, AppColors c, bool isConnected, bool isConnecting) {
+  Widget _buildStatusCard(
+      BuildContext context, AppColors c, bool isConnected, bool isConnecting) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -287,7 +347,8 @@ class _ConnectScreenState extends State<ConnectScreen> {
               Expanded(
                 child: Text('System Status',
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontWeight: FontWeight.w600, color: c.textPrimary)),
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600, color: c.textPrimary)),
               ),
               StatusPill(
                 label: isConnected || isConnecting
@@ -298,7 +359,8 @@ class _ConnectScreenState extends State<ConnectScreen> {
                     : isConnecting
                         ? c.amber
                         : _statusNote == 'NO DESKTOP FOUND' ||
-                                widget.state.status == ConnectionStatus.denied ||
+                                widget.state.status ==
+                                    ConnectionStatus.denied ||
                                 widget.state.status == ConnectionStatus.failed
                             ? c.amber
                             : c.textMuted,

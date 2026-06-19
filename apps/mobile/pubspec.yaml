@@ -1,5 +1,5 @@
 name: remotelink_mobile
-description: Remote Link Android client.
+description: RemoteLink Android client.
 version: 0.1.0+1
 
 environment:
@@ -9,8 +9,8 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.2
+  shared_preferences: ^2.3.5
   web_socket_channel: ^2.4.5
-
 dev_dependencies:
   flutter_test:
     sdk: flutter

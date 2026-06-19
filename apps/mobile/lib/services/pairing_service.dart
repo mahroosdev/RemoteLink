@@ -12,7 +12,8 @@ class RemoteMonitor {
   final String label;
   final bool primary;
 
-  const RemoteMonitor({required this.id, required this.label, required this.primary});
+  const RemoteMonitor(
+      {required this.id, required this.label, required this.primary});
 
   factory RemoteMonitor.fromJson(Map<String, dynamic> json) => RemoteMonitor(
         id: json['id']?.toString() ?? '',
@@ -26,8 +27,15 @@ class PairingEvent {
   final String? sessionId;
   final String? message;
   final List<RemoteMonitor> monitors;
+  final int? attemptId;
 
-  const PairingEvent(this.type, {this.sessionId, this.message, this.monitors = const []});
+  const PairingEvent(
+    this.type, {
+    this.sessionId,
+    this.message,
+    this.monitors = const [],
+    this.attemptId,
+  });
 }
 
 class PairingService {
@@ -35,33 +43,34 @@ class PairingService {
   StreamSubscription<dynamic>? _subscription;
   Timer? _connectTimeout;
   final _events = StreamController<PairingEvent>.broadcast();
-  final String deviceId = _createDeviceId();
+  String? _deviceId;
   String? _sessionId;
+  int _attemptSequence = 0;
+  int? _activeAttemptId;
+  bool _pairingComplete = false;
 
+  String get deviceId => _deviceId ??= _createDeviceId();
   Stream<PairingEvent> get events => _events.stream;
   bool get isConnected => _channel != null && _sessionId != null;
 
   Future<void> connect(String hostIp, String pairingCode) async {
     await disconnect(sendMessage: false);
-    final uri = Uri.parse('ws://$hostIp:$remoteLinkWsPort');
-    final failureMessage =
-        'Cannot reach PC at $uri. Check desktop engine is ON, phone and PC are on the same Wi-Fi, Windows Firewall allows Private network access, and try another Host IP shown in the desktop app.';
+    final cleanHostIp = hostIp.trim();
+    final cleanPairingCode = pairingCode.trim();
+    final attemptId = ++_attemptSequence;
+    _activeAttemptId = attemptId;
+    _pairingComplete = false;
+    final uri = Uri.parse('ws://$cleanHostIp:$remoteLinkWsPort');
+    final failureMessage = 'Cannot reach desktop engine at $uri';
     try {
       _channel = WebSocketChannel.connect(uri);
       _subscription = _channel!.stream.listen(
-        _handleMessage,
-        onError: (_) => _events.add(PairingEvent(
-          MessageTypes.error,
-          message: failureMessage,
-        )),
-        onDone: () => _events.add(const PairingEvent(MessageTypes.disconnect, message: 'Connection closed by desktop')),
+        (raw) => _handleMessage(attemptId, raw),
+        onError: (_) => _failAttempt(attemptId, failureMessage),
+        onDone: () => _handleSocketDone(attemptId),
       );
       _connectTimeout = Timer(const Duration(seconds: 9), () {
-        _events.add(const PairingEvent(
-          MessageTypes.error,
-          message: 'Connection failed. Check Host IP, desktop engine, firewall, and same Wi-Fi/hotspot.',
-        ));
-        disconnect(sendMessage: false);
+        _failAttempt(attemptId, 'Pairing request timed out');
       });
       _send(remoteLinkMessage(
         type: MessageTypes.pairingRequest,
@@ -69,20 +78,17 @@ class PairingService {
         payload: {
           'deviceName': _deviceName(),
           'deviceId': deviceId,
-          'pairingCode': pairingCode,
+          'pairingCode': cleanPairingCode,
           'appVersion': remoteLinkProtocolVersion,
         },
       ));
     } catch (error) {
-      _events.add(PairingEvent(
-        MessageTypes.error,
-        message: failureMessage,
-      ));
+      _failAttempt(attemptId, failureMessage);
     }
   }
 
-  void sendCommandLog(String command, Map<String, dynamic> details) {
-    if (_channel == null || _sessionId == null) return;
+  bool sendCommandLog(String command, Map<String, dynamic> details) {
+    if (_channel == null || _sessionId == null) return false;
     _send(remoteLinkMessage(
       type: MessageTypes.commandLog,
       deviceId: deviceId,
@@ -92,10 +98,15 @@ class PairingService {
         'details': details,
       },
     ));
+    return true;
   }
 
   Future<void> disconnect({bool sendMessage = true}) async {
-    if (sendMessage && _channel != null) {
+    _activeAttemptId = null;
+    _pairingComplete = false;
+    final subscription = _subscription;
+    final channel = _channel;
+    if (sendMessage && channel != null) {
       _send(remoteLinkMessage(
         type: MessageTypes.disconnect,
         deviceId: deviceId,
@@ -103,13 +114,13 @@ class PairingService {
         payload: {'reason': 'Disconnected from mobile'},
       ));
     }
-    await _subscription?.cancel();
     _connectTimeout?.cancel();
-    await _channel?.sink.close();
     _subscription = null;
     _connectTimeout = null;
     _channel = null;
     _sessionId = null;
+    await subscription?.cancel();
+    unawaited(channel?.sink.close());
   }
 
   Future<void> dispose() async {
@@ -117,7 +128,8 @@ class PairingService {
     await _events.close();
   }
 
-  void _handleMessage(dynamic raw) {
+  void _handleMessage(int attemptId, dynamic raw) {
+    if (!_isCurrentAttempt(attemptId)) return;
     final decoded = jsonDecode(raw.toString());
     if (decoded is! Map<String, dynamic>) return;
     final type = decoded['type']?.toString();
@@ -129,38 +141,120 @@ class PairingService {
       case MessageTypes.pairingPending:
         _connectTimeout?.cancel();
         _connectTimeout = null;
-        _events.add(const PairingEvent(MessageTypes.pairingPending, message: 'Waiting for PC approval'));
+        _emitIfCurrent(
+            attemptId,
+            const PairingEvent(
+              MessageTypes.pairingPending,
+              message: 'Waiting for PC approval',
+            ));
         break;
       case MessageTypes.pairingApproved:
         _connectTimeout?.cancel();
         _connectTimeout = null;
-        _sessionId = payload['sessionId']?.toString() ?? decoded['sessionId']?.toString();
+        _sessionId = payload['sessionId']?.toString() ??
+            decoded['sessionId']?.toString();
+        _pairingComplete = true;
         final monitors = _readMonitors(payload['detectedMonitors']);
-        _events.add(PairingEvent(MessageTypes.pairingApproved, sessionId: _sessionId, monitors: monitors));
+        _emitIfCurrent(
+            attemptId,
+            PairingEvent(
+              MessageTypes.pairingApproved,
+              sessionId: _sessionId,
+              monitors: monitors,
+            ));
         break;
       case MessageTypes.monitorList:
-        _events.add(PairingEvent(MessageTypes.monitorList, monitors: _readMonitors(payload['detectedMonitors'])));
+        _emitIfCurrent(
+            attemptId,
+            PairingEvent(
+              MessageTypes.monitorList,
+              monitors: _readMonitors(payload['detectedMonitors']),
+            ));
         break;
       case MessageTypes.pairingDenied:
-        _events.add(PairingEvent(
-          MessageTypes.pairingDenied,
-          message: payload['reason']?.toString() ?? 'Pairing denied',
-        ));
+        _emitIfCurrent(
+            attemptId,
+            PairingEvent(
+              MessageTypes.pairingDenied,
+              message: _pairingDeniedMessage(payload['reason']?.toString()),
+            ));
+        _closeAttempt(attemptId);
         break;
       case MessageTypes.disconnect:
-        _events.add(PairingEvent(
-          MessageTypes.disconnect,
-          message: payload['reason']?.toString() ?? 'Connection closed by desktop',
-        ));
-        disconnect(sendMessage: false);
+        _emitIfCurrent(
+            attemptId,
+            PairingEvent(
+              MessageTypes.disconnect,
+              message: payload['reason']?.toString() ??
+                  'Connection closed by desktop',
+            ));
+        _closeAttempt(attemptId);
         break;
       case MessageTypes.error:
-        _events.add(PairingEvent(
-          MessageTypes.error,
-          message: payload['reason']?.toString() ?? 'Desktop reported an error',
-        ));
+        _emitIfCurrent(
+            attemptId,
+            PairingEvent(
+              MessageTypes.error,
+              message:
+                  payload['reason']?.toString() ?? 'Desktop reported an error',
+            ));
+        _closeAttempt(attemptId);
         break;
     }
+  }
+
+  bool _isCurrentAttempt(int attemptId) => _activeAttemptId == attemptId;
+
+  void _emitIfCurrent(int attemptId, PairingEvent event) {
+    if (!_isCurrentAttempt(attemptId) || _events.isClosed) return;
+    _events.add(PairingEvent(
+      event.type,
+      sessionId: event.sessionId,
+      message: event.message,
+      monitors: event.monitors,
+      attemptId: attemptId,
+    ));
+  }
+
+  void _failAttempt(int attemptId, String message) {
+    _emitIfCurrent(
+        attemptId, PairingEvent(MessageTypes.error, message: message));
+    _closeAttempt(attemptId);
+  }
+
+  void _handleSocketDone(int attemptId) {
+    if (!_isCurrentAttempt(attemptId)) return;
+    final message = _pairingComplete
+        ? 'Connection closed by desktop'
+        : 'Connection closed before pairing completed';
+    _emitIfCurrent(
+        attemptId, PairingEvent(MessageTypes.disconnect, message: message));
+    _closeAttempt(attemptId);
+  }
+
+  void _closeAttempt(int attemptId) {
+    if (!_isCurrentAttempt(attemptId)) return;
+    _activeAttemptId = null;
+    _pairingComplete = false;
+    _connectTimeout?.cancel();
+    _connectTimeout = null;
+    final subscription = _subscription;
+    final channel = _channel;
+    _subscription = null;
+    _channel = null;
+    _sessionId = null;
+    unawaited(subscription?.cancel());
+    unawaited(channel?.sink.close());
+  }
+
+  String _pairingDeniedMessage(String? reason) {
+    final normalized = (reason ?? '').toLowerCase();
+    if (normalized.contains('invalid pairing code') ||
+        normalized.contains('code')) {
+      return 'Pairing code mismatch';
+    }
+    if (reason == null || reason.isEmpty) return 'Desktop rejected pairing';
+    return reason;
   }
 
   List<RemoteMonitor> _readMonitors(dynamic value) {
