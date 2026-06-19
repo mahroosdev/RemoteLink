@@ -67,7 +67,7 @@ class AppState extends ChangeNotifier {
   String _pairingCode = '';
   String? _sessionId;
   String? _lastConnectionError;
-  int _activeMonitor = 1;
+  String? _selectedMonitorId;
 
   /// Monitors reported by the PC after approval.
   List<RemoteMonitor> _detectedMonitors = const [];
@@ -118,7 +118,14 @@ class AppState extends ChangeNotifier {
   String get pairingCode => _pairingCode;
   String? get sessionId => _sessionId;
   String? get lastConnectionError => _lastConnectionError;
-  int get activeMonitor => _activeMonitor;
+  int get activeMonitor {
+    final selectedId = _selectedMonitorId;
+    final selectedIndex = selectedId == null
+        ? -1
+        : _detectedMonitors.indexWhere((monitor) => monitor.id == selectedId);
+    return selectedIndex >= 0 ? selectedIndex + 1 : 1;
+  }
+  String? get selectedMonitorId => _selectedMonitorId;
   int get detectedMonitorCount => _detectedMonitors.length;
   List<RemoteMonitor> get detectedMonitors => _detectedMonitors;
   Set<String> get heldModifiers => _heldModifiers;
@@ -243,7 +250,7 @@ class AppState extends ChangeNotifier {
     _sessionId = null;
     _detectedMonitors = const [];
     _heldModifiers.clear();
-    _activeMonitor = 1;
+    _selectedMonitorId = null;
     notifyListeners();
 
     final connectCompleter = Completer<void>();
@@ -267,34 +274,27 @@ class AppState extends ChangeNotifier {
     _heldModifiers.clear();
     _detectedMonitors = const [];
     _sessionId = null;
-    _activeMonitor = 1;
+    _selectedMonitorId = null;
     addLog("Disconnected from host");
     notifyListeners();
   }
 
   void setActiveMonitor(int id) {
-    if (id < 1 || id > detectedMonitorCount) return;
     if (!isConnected) {
       addLog('Connect to PC first');
       return;
     }
-    _activeMonitor = id;
-    addLog("Switched to Screen $id");
-    sendCommandLog('monitor_switch',
-        {'screenIndex': id, 'monitorId': _detectedMonitors[id - 1].id});
-    notifyListeners();
-  }
-
-  /// Dev-only simulation of how many monitors the PC reports (1..3).
-  void setDetectedMonitorCount(int count) {
-    final simulatedCount = count.clamp(1, 3);
-    _detectedMonitors = [
-      for (var i = 1; i <= simulatedCount; i++)
-        RemoteMonitor(
-            id: 'demo-screen-$i', label: 'Screen $i', primary: i == 1),
-    ];
-    if (_activeMonitor > detectedMonitorCount) _activeMonitor = 1;
-    addLog("Simulated $detectedMonitorCount detected screen(s)");
+    if (id < 1 || id > detectedMonitorCount) {
+      addLog('Screen selection unavailable');
+      return;
+    }
+    final monitor = _detectedMonitors[id - 1];
+    if (!_pairingService.selectMonitor(monitor.id)) {
+      setTransientAction('Screen selection failed. Reconnect to PC.');
+      return;
+    }
+    _selectedMonitorId = monitor.id;
+    addLog("Switched to ${monitor.label}", updateTicker: false);
     notifyListeners();
   }
 
@@ -428,7 +428,7 @@ class AppState extends ChangeNotifier {
         _status = ConnectionStatus.connected;
         _sessionId = event.sessionId;
         _detectedMonitors = event.monitors;
-        _activeMonitor = 1;
+        _selectedMonitorId = _validSelectedMonitorId(event.selectedMonitorId);
         addLog("Connected to PC locally ($_hostIp)");
         addLog("Detected $detectedMonitorCount screen(s)");
         _completePendingConnect();
@@ -436,7 +436,7 @@ class AppState extends ChangeNotifier {
         break;
       case MessageTypes.monitorList:
         _detectedMonitors = event.monitors;
-        if (_activeMonitor > detectedMonitorCount) _activeMonitor = 1;
+        _selectedMonitorId = _validSelectedMonitorId(event.selectedMonitorId);
         addLog("Updated monitor list: $detectedMonitorCount screen(s)");
         notifyListeners();
         break;
@@ -445,6 +445,7 @@ class AppState extends ChangeNotifier {
         _lastConnectionError = event.message ?? 'Pairing denied by desktop';
         _sessionId = null;
         _detectedMonitors = const [];
+        _selectedMonitorId = null;
         _heldModifiers.clear();
         unawaited(_pairingService.disconnect(sendMessage: false));
         addLog(_lastConnectionError!);
@@ -455,6 +456,7 @@ class AppState extends ChangeNotifier {
         _status = ConnectionStatus.disconnected;
         _sessionId = null;
         _detectedMonitors = const [];
+        _selectedMonitorId = null;
         _heldModifiers.clear();
         addLog(event.message ?? 'Connection closed by desktop');
         _completePendingConnect();
@@ -466,6 +468,7 @@ class AppState extends ChangeNotifier {
             'Connection failed. Start desktop app, turn engine ON, check Host IP, same Wi-Fi, and firewall.';
         _sessionId = null;
         _detectedMonitors = const [];
+        _selectedMonitorId = null;
         _heldModifiers.clear();
         unawaited(_pairingService.disconnect(sendMessage: false));
         addLog(_lastConnectionError!);
@@ -480,5 +483,17 @@ class AppState extends ChangeNotifier {
       _pendingConnect!.complete();
     }
     _pendingConnect = null;
+  }
+
+  String? _validSelectedMonitorId(String? requestedId) {
+    if (_detectedMonitors.isEmpty) return null;
+    if (requestedId != null &&
+        _detectedMonitors.any((monitor) => monitor.id == requestedId)) {
+      return requestedId;
+    }
+    for (final monitor in _detectedMonitors) {
+      if (monitor.isPrimary) return monitor.id;
+    }
+    return _detectedMonitors.first.id;
   }
 }

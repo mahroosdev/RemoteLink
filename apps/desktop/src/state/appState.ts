@@ -28,6 +28,8 @@ export interface MonitorInfo {
   fps: number;
   sourceId?: string;
   protocolId?: string;
+  bounds?: { x: number; y: number; width: number; height: number };
+  scaleFactor?: number;
 }
 
 export interface PendingPairingRequest {
@@ -49,6 +51,7 @@ export interface EngineState {
   pendingRequest: PendingPairingRequest | null;
   connectedDevice: (DeviceInfo & { deviceId?: string; appVersion?: string }) | null;
   detectedMonitors: MonitorInfo[];
+  selectedMonitorId: string | null;
   activityLog: LogItem[];
   error?: string;
 }

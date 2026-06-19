@@ -8,6 +8,7 @@ const OverviewPage = ({ state, onAction }: any) => {
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const fallbackIps = state.hostIpFallbacks ?? [];
   const recommendedIps = state.hostIpCandidates ?? [];
+  const selectedMonitor = state.monitors.find((m: any) => m.protocolId === state.selectedMonitorId || m.isActive);
 
   const copyText = async (label: string, text: string) => {
     try {
@@ -133,9 +134,18 @@ const OverviewPage = ({ state, onAction }: any) => {
                <p className="text-secondary" style={{ fontSize: '13px' }}>{m.resolution} @ {m.refreshRate}</p>
             </div>
           ))}
+          {state.monitors.length === 0 && (
+            <p className="text-muted" style={{ fontSize: '13px', lineHeight: 1.5 }}>
+              No desktop screens detected. Start the engine after displays are connected.
+            </p>
+          )}
           <div style={{ borderTop: '1px solid var(--border-subtle)', marginTop: '8px', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-             <span className="text-muted">Available Monitors</span>
+             <span className="text-muted">Detected screens</span>
              <span style={{ fontWeight: 600, fontSize: '14px' }}>{state.monitors.length}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+             <span className="text-muted">Selected screen</span>
+             <span style={{ fontWeight: 600, fontSize: '14px' }}>{selectedMonitor?.name ?? '--'}</span>
           </div>
         </div>
       </Card>

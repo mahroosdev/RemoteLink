@@ -10,6 +10,7 @@ import {
   type PairingRequestPayload,
   type RemoteLinkMessage,
   type RemoteLinkMonitor,
+  type SelectMonitorPayload,
 } from './protocol'
 
 const nodeRequire = createRequire(import.meta.url)
@@ -48,6 +49,8 @@ export interface EngineMonitor {
   quality: string
   fps: number
   protocolId: string
+  bounds: { x: number; y: number; width: number; height: number }
+  scaleFactor: number
 }
 
 export interface PendingPairingRequest {
@@ -69,6 +72,7 @@ export interface EngineState {
   pendingRequest: PendingPairingRequest | null
   connectedDevice: EngineDevice | null
   detectedMonitors: EngineMonitor[]
+  selectedMonitorId: string | null
   activityLog: EngineLogItem[]
   error?: string
 }
@@ -95,36 +99,12 @@ interface IpDetectionResult {
   source: 'node' | 'powershell' | 'node+powershell'
 }
 
-const monitorState: EngineMonitor[] = [
-  {
-    id: 1,
-    protocolId: 'screen-1',
-    name: 'Screen 1',
-    resolution: '1920 x 1080',
-    refreshRate: '60Hz',
-    isPrimary: true,
-    isActive: true,
-    quality: 'High',
-    fps: 60,
-  },
-  {
-    id: 2,
-    protocolId: 'screen-2',
-    name: 'Screen 2',
-    resolution: '1920 x 1080',
-    refreshRate: '60Hz',
-    isPrimary: false,
-    isActive: false,
-    quality: 'High',
-    fps: 60,
-  },
-]
-
 export class RemoteLinkServer {
   private server: WebSocketServerType | null = null
   private pending: PendingSocket | null = null
   private connected: { ws: WebSocketType; device: EngineDevice; sessionId: string } | null = null
   private notify: (state: EngineState) => void
+  private detectMonitors: () => EngineMonitor[]
   private state: EngineState = {
     engineActive: false,
     serverStatus: 'offline',
@@ -135,12 +115,14 @@ export class RemoteLinkServer {
     pairingCode: generatePairingCode(),
     pendingRequest: null,
     connectedDevice: null,
-    detectedMonitors: monitorState,
+    detectedMonitors: [],
+    selectedMonitorId: null,
     activityLog: [],
   }
 
-  constructor(notify: (state: EngineState) => void) {
+  constructor(notify: (state: EngineState) => void, detectMonitors: () => EngineMonitor[]) {
     this.notify = notify
+    this.detectMonitors = detectMonitors
   }
 
   getState() {
@@ -152,6 +134,7 @@ export class RemoteLinkServer {
 
     this.state.serverStatus = 'starting'
     this.state.engineActive = false
+    this.refreshMonitors('Detected monitors before engine start', false)
     const localIps = detectLocalIPv4Candidates()
     this.state.hostIpCandidates = localIps.recommended
     this.state.hostIpFallbacks = localIps.fallback
@@ -266,14 +249,16 @@ export class RemoteLinkServer {
     this.pending = null
     this.state.pendingRequest = null
     this.state.connectedDevice = device
-    const protocolMonitors = this.protocolMonitors()
+    this.refreshMonitors('Detected monitors before pairing approval', false)
+    const monitorPayload = this.monitorListPayload()
 
     this.send(this.connected.ws, MessageType.PairingApproved, {
       sessionId,
       hostName: os.hostname(),
-      detectedMonitors: protocolMonitors,
+      ...monitorPayload,
     }, device.deviceId, sessionId)
-    this.send(this.connected.ws, MessageType.MonitorList, { detectedMonitors: protocolMonitors }, device.deviceId, sessionId)
+    this.send(this.connected.ws, MessageType.MonitorList, monitorPayload, device.deviceId, sessionId)
+    this.addLog(`Monitor list sent to mobile (${this.state.detectedMonitors.length} screen(s))`, 'Monitor', 'Info', false, device.name)
     this.addLog(`Mobile Authorization approved for ${device.name}`, 'Pairing', 'Success', true, device.name)
     this.emit()
     return this.getState()
@@ -298,6 +283,8 @@ export class RemoteLinkServer {
     const deviceName = this.connected?.device.name
     this.connected = null
     this.state.connectedDevice = null
+    this.state.selectedMonitorId = this.state.detectedMonitors[0]?.protocolId ?? null
+    this.state.detectedMonitors = this.withActiveMonitor(this.state.detectedMonitors, this.state.selectedMonitorId)
     this.addLog(deviceName ? `Session disconnected: ${deviceName}` : 'Session disconnected', 'System', 'Info')
     this.emit()
     return this.getState()
@@ -346,6 +333,10 @@ export class RemoteLinkServer {
     }
     if (message.type === MessageType.CommandLog) {
       this.handleCommandLog(message, message.payload as CommandLogPayload | undefined)
+      return
+    }
+    if (message.type === MessageType.SelectMonitor) {
+      this.handleSelectMonitor(message, message.payload as SelectMonitorPayload | undefined)
       return
     }
     if (message.type === MessageType.Disconnect) {
@@ -410,6 +401,27 @@ export class RemoteLinkServer {
     this.addLog(`command_log ${payload.command}${detailText}`, commandType(payload.command), 'Info', true, this.connected.device.name)
   }
 
+  private handleSelectMonitor(message: RemoteLinkMessage, payload?: SelectMonitorPayload) {
+    if (!this.connected || message.sessionId !== this.connected.sessionId) {
+      this.addLog('Rejected select_monitor from unapproved session', 'Security', 'Warning')
+      return
+    }
+    const monitorId = payload?.monitorId
+    const monitor = typeof monitorId === 'string'
+      ? this.state.detectedMonitors.find((item) => item.protocolId === monitorId)
+      : undefined
+    if (!monitor) {
+      this.addLog(`Invalid monitor selection rejected: ${monitorId ?? 'missing monitorId'}`, 'Monitor', 'Warning', true, this.connected.device.name)
+      this.send(this.connected.ws, MessageType.MonitorList, this.monitorListPayload(), this.connected.device.deviceId, this.connected.sessionId)
+      return
+    }
+
+    this.state.selectedMonitorId = monitor.protocolId
+    this.state.detectedMonitors = this.withActiveMonitor(this.state.detectedMonitors, monitor.protocolId)
+    this.addLog(`Selected monitor changed: ${monitor.name}`, 'Monitor', 'Success', true, this.connected.device.name)
+    this.send(this.connected.ws, MessageType.MonitorList, this.monitorListPayload(), this.connected.device.deviceId, this.connected.sessionId)
+  }
+
   private clearPending() {
     this.pending = null
     this.state.pendingRequest = null
@@ -430,8 +442,52 @@ export class RemoteLinkServer {
     return this.state.detectedMonitors.map((monitor) => ({
       id: monitor.protocolId,
       label: monitor.name,
+      isPrimary: monitor.isPrimary,
       primary: monitor.isPrimary,
+      width: monitor.bounds.width,
+      height: monitor.bounds.height,
+      scaleFactor: monitor.scaleFactor,
     }))
+  }
+
+  private monitorListPayload() {
+    const monitors = this.protocolMonitors()
+    return {
+      monitors,
+      detectedMonitors: monitors,
+      selectedMonitorId: this.state.selectedMonitorId,
+    }
+  }
+
+  private withActiveMonitor(monitors: EngineMonitor[], selectedMonitorId: string | null) {
+    return monitors.map((monitor) => ({
+      ...monitor,
+      isActive: selectedMonitorId ? monitor.protocolId === selectedMonitorId : monitor.isPrimary,
+    }))
+  }
+
+  refreshMonitors(reason = 'Display detection refreshed', shouldEmit = true) {
+    let detected: EngineMonitor[] = []
+    try {
+      detected = this.detectMonitors()
+    } catch (error) {
+      this.addLog(`Monitor detection failed: ${error instanceof Error ? error.message : String(error)}`, 'Monitor', 'Error', shouldEmit)
+      return this.getState()
+    }
+
+    const previousSelected = this.state.selectedMonitorId
+    const selectedMonitorId = previousSelected && detected.some((monitor) => monitor.protocolId === previousSelected)
+      ? previousSelected
+      : detected.find((monitor) => monitor.isPrimary)?.protocolId ?? detected[0]?.protocolId ?? null
+    this.state.selectedMonitorId = selectedMonitorId
+    this.state.detectedMonitors = this.withActiveMonitor(detected, selectedMonitorId)
+    this.addLog(`${reason}: ${detected.length} screen(s)`, 'Monitor', 'Info', false)
+    if (this.connected?.ws.readyState === WebSocket.OPEN) {
+      this.send(this.connected.ws, MessageType.MonitorList, this.monitorListPayload(), this.connected.device.deviceId, this.connected.sessionId)
+      this.addLog(`Monitor list sent to mobile (${detected.length} screen(s))`, 'Monitor', 'Info', false, this.connected.device.name)
+    }
+    if (shouldEmit) this.emit()
+    return this.getState()
   }
 
   private addLog(

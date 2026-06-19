@@ -267,13 +267,19 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
             .map((monitor) => monitor.label)
             .toList(growable: false),
         onMonitorChanged: (id) {
+          final wasSelected = state.activeMonitor == id;
           state.setActiveMonitor(id);
-          _showFeedback(state.isConnected
-              ? 'Switched to Screen $id'
-              : 'Connect to PC first');
+          if (!state.isConnected) {
+            _showFeedback('Connect to PC first');
+          } else if (!wasSelected && state.activeMonitor != id) {
+            _showFeedback('Screen selection failed');
+          }
         },
       );
     }
+    final message = state.isConnected
+        ? 'No desktop screens detected'
+        : 'Connect to PC to load screens';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -287,7 +293,7 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Connect to PC to detect available screens.',
+              message,
               style: TextStyle(fontSize: 12, color: c.textMuted),
             ),
           ),

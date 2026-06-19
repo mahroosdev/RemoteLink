@@ -14,7 +14,7 @@ import ManualPage from './pages/ManualPage';
 
 // Data & State
 import { DeviceInfo, LogItem, MonitorInfo, AppSettings, defaultSettings, EngineState } from './state/appState';
-import { mockConnectedDevice, initialLogs, mockMonitors } from './data/mockData';
+import { mockConnectedDevice, initialLogs } from './data/mockData';
 
 const fallbackEngineState: EngineState = {
   engineActive: false,
@@ -26,7 +26,8 @@ const fallbackEngineState: EngineState = {
   pairingCode: '------',
   pendingRequest: null,
   connectedDevice: null,
-  detectedMonitors: mockMonitors,
+  detectedMonitors: [],
+  selectedMonitorId: null,
   activityLog: initialLogs,
 };
 
@@ -144,7 +145,6 @@ function App() {
             }]);
           }
         });
-        setActiveTab('Overview');
         break;
       case 'DENY':
         applyEngineAction(window.remotelink.denyPairing());
@@ -213,6 +213,7 @@ function App() {
         hostIpFallbacks: engineState.hostIpFallbacks,
         selectedHostIp: localIP,
         pendingRequest: engineState.pendingRequest, engineError: engineState.error,
+        selectedMonitorId: engineState.selectedMonitorId,
       }, 
       onAction, settingsTab, setSettingsTab, updateSettings 
     };
@@ -247,11 +248,13 @@ function App() {
           onRefresh={() => onAction('REGEN_CODE')} 
         />
         <main className="scroll-area">
-          <GlobalPairingRequest
-            request={engineState.pendingRequest}
-            onApprove={() => onAction('APPROVE')}
-            onDeny={() => onAction('DENY')}
-          />
+          {activeTab === 'Overview' && (
+            <GlobalPairingRequest
+              request={engineState.pendingRequest}
+              onApprove={() => onAction('APPROVE')}
+              onDeny={() => onAction('DENY')}
+            />
+          )}
           {renderCurrentPage()}
         </main>
       </div>

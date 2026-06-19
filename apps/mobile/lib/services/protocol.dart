@@ -8,6 +8,7 @@ class MessageTypes {
   static const pairingDenied = 'pairing_denied';
   static const heartbeat = 'heartbeat';
   static const monitorList = 'monitor_list';
+  static const selectMonitor = 'select_monitor';
   static const commandLog = 'command_log';
   static const disconnect = 'disconnect';
   static const error = 'error';

@@ -10,16 +10,40 @@ import 'protocol.dart';
 class RemoteMonitor {
   final String id;
   final String label;
-  final bool primary;
+  final bool isPrimary;
+  final int? width;
+  final int? height;
+  final double? scaleFactor;
 
-  const RemoteMonitor(
-      {required this.id, required this.label, required this.primary});
+  const RemoteMonitor({
+    required this.id,
+    required this.label,
+    required this.isPrimary,
+    this.width,
+    this.height,
+    this.scaleFactor,
+  });
 
   factory RemoteMonitor.fromJson(Map<String, dynamic> json) => RemoteMonitor(
         id: json['id']?.toString() ?? '',
         label: json['label']?.toString() ?? 'Screen',
-        primary: json['primary'] == true,
+        isPrimary: json['isPrimary'] == true || json['primary'] == true,
+        width: _readInt(json['width']),
+        height: _readInt(json['height']),
+        scaleFactor: _readDouble(json['scaleFactor']),
       );
+
+  static int? _readInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.round();
+    return int.tryParse(value?.toString() ?? '');
+  }
+
+  static double? _readDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '');
+  }
 }
 
 class PairingEvent {
@@ -27,6 +51,7 @@ class PairingEvent {
   final String? sessionId;
   final String? message;
   final List<RemoteMonitor> monitors;
+  final String? selectedMonitorId;
   final int? attemptId;
 
   const PairingEvent(
@@ -34,6 +59,7 @@ class PairingEvent {
     this.sessionId,
     this.message,
     this.monitors = const [],
+    this.selectedMonitorId,
     this.attemptId,
   });
 }
@@ -101,6 +127,19 @@ class PairingService {
     return true;
   }
 
+  bool selectMonitor(String monitorId) {
+    if (_channel == null || _sessionId == null || monitorId.isEmpty) {
+      return false;
+    }
+    _send(remoteLinkMessage(
+      type: MessageTypes.selectMonitor,
+      deviceId: deviceId,
+      sessionId: _sessionId,
+      payload: {'monitorId': monitorId},
+    ));
+    return true;
+  }
+
   Future<void> disconnect({bool sendMessage = true}) async {
     _activeAttemptId = null;
     _pairingComplete = false;
@@ -154,13 +193,14 @@ class PairingService {
         _sessionId = payload['sessionId']?.toString() ??
             decoded['sessionId']?.toString();
         _pairingComplete = true;
-        final monitors = _readMonitors(payload['detectedMonitors']);
+        final monitors = _readMonitors(payload);
         _emitIfCurrent(
             attemptId,
             PairingEvent(
               MessageTypes.pairingApproved,
               sessionId: _sessionId,
               monitors: monitors,
+              selectedMonitorId: payload['selectedMonitorId']?.toString(),
             ));
         break;
       case MessageTypes.monitorList:
@@ -168,7 +208,8 @@ class PairingService {
             attemptId,
             PairingEvent(
               MessageTypes.monitorList,
-              monitors: _readMonitors(payload['detectedMonitors']),
+              monitors: _readMonitors(payload),
+              selectedMonitorId: payload['selectedMonitorId']?.toString(),
             ));
         break;
       case MessageTypes.pairingDenied:
@@ -212,6 +253,7 @@ class PairingService {
       sessionId: event.sessionId,
       message: event.message,
       monitors: event.monitors,
+      selectedMonitorId: event.selectedMonitorId,
       attemptId: attemptId,
     ));
   }
@@ -257,7 +299,8 @@ class PairingService {
     return reason;
   }
 
-  List<RemoteMonitor> _readMonitors(dynamic value) {
+  List<RemoteMonitor> _readMonitors(Map<String, dynamic> payload) {
+    final value = payload['monitors'] ?? payload['detectedMonitors'];
     if (value is! List) return const [];
     return value
         .whereType<Map<String, dynamic>>()

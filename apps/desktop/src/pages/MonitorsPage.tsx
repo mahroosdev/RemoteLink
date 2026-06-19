@@ -31,6 +31,7 @@ const MonitorsPage = ({ state, onAction }: any) => {
 
   const startStream = async () => {
     const activeMonitor = state.monitors.find((m: any) => m.isActive);
+    if (!activeMonitor) return;
     const source = sources.find(s => s.name.includes(activeMonitor.name)) || sources[0];
     
     if (!source) return;
@@ -130,6 +131,11 @@ const MonitorsPage = ({ state, onAction }: any) => {
               </div>
             </Card>
           ))}
+          {state.monitors.length === 0 && (
+            <Card style={{ background: 'var(--bg-sidebar)', padding: '20px' }}>
+              <p className="text-muted" style={{ margin: 0, fontSize: '13px' }}>No desktop screens detected.</p>
+            </Card>
+          )}
           
           <Card title="Detected PIDs" style={{ background: 'var(--bg-sidebar)', padding: '20px' }}>
              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

@@ -19,6 +19,7 @@ import 'package:remotelink_mobile/widgets/touchpad_area.dart';
 class FakePairingService extends PairingService {
   final _events = StreamController<PairingEvent>.broadcast();
   final List<String> commands = [];
+  final List<String> selectedMonitorIds = [];
   final List<String> hostIps = [];
   final List<String> pairingCodes = [];
   final Set<String> failingHostIps;
@@ -45,8 +46,8 @@ class FakePairingService extends PairingService {
       return;
     }
     const monitors = [
-      RemoteMonitor(id: 'screen-1', label: 'Screen 1', primary: true),
-      RemoteMonitor(id: 'screen-2', label: 'Screen 2', primary: false),
+      RemoteMonitor(id: 'screen-1', label: 'Screen 1', isPrimary: true),
+      RemoteMonitor(id: 'screen-2', label: 'Screen 2', isPrimary: false),
     ];
 
     scheduleMicrotask(() {
@@ -56,15 +57,23 @@ class FakePairingService extends PairingService {
         MessageTypes.pairingApproved,
         sessionId: 'test-session',
         monitors: monitors,
+        selectedMonitorId: 'screen-1',
       ));
       _events.add(
-          const PairingEvent(MessageTypes.monitorList, monitors: monitors));
+          const PairingEvent(MessageTypes.monitorList,
+              monitors: monitors, selectedMonitorId: 'screen-1'));
     });
   }
 
   @override
   bool sendCommandLog(String command, Map<String, dynamic> details) {
     commands.add(command);
+    return true;
+  }
+
+  @override
+  bool selectMonitor(String monitorId) {
+    selectedMonitorIds.add(monitorId);
     return true;
   }
 
@@ -233,13 +242,12 @@ void main() {
 
   testWidgets('valid connect navigates to Remote and detects monitors',
       (tester) async {
-    await pumpApp(tester);
+    final harness = await pumpApp(tester);
 
     // Offline: no monitor buttons, just the detection hint.
     await tester.tap(find.byIcon(Icons.settings_remote));
     await tester.pumpAndSettle();
-    expect(find.text('Connect to PC to detect available screens.'),
-        findsOneWidget);
+    expect(find.text('Connect to PC to load screens'), findsOneWidget);
     expect(find.text('Screen 1'), findsNothing);
     expect(find.text('STREAM OFFLINE'), findsOneWidget);
     await tester.tap(find.byIcon(Icons.wifi));
@@ -252,7 +260,7 @@ void main() {
     expect(find.text('12MS'), findsOneWidget);
     // Mock detection reports 2 monitors → exactly Screen 1 and Screen 2.
     expect(
-        find.text('Connect to PC to detect available screens.'), findsNothing);
+        find.text('Connect to PC to load screens'), findsNothing);
     expect(find.text('Screen 1'), findsOneWidget);
     expect(find.text('Screen 2'), findsOneWidget);
     expect(find.text('Screen 3'), findsNothing);
@@ -261,7 +269,9 @@ void main() {
     await tester.tap(find.text('Screen 2'));
     await tester.pump();
     expect(find.textContaining('SCREEN 2'), findsOneWidget);
-    expect(find.text('Switched to Screen 2'), findsAtLeastNWidgets(1));
+    expect(find.byType(SnackBar), findsNothing);
+    expect(harness.service.selectedMonitorIds, ['screen-2']);
+    expect(harness.service.commands, isNot(contains('monitor_switch')));
   });
 
   testWidgets('touchpad logs pointer movement and pointer toggle works',

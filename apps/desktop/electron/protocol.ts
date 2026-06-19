@@ -7,6 +7,7 @@ export const MessageType = {
   PairingDenied: 'pairing_denied',
   Heartbeat: 'heartbeat',
   MonitorList: 'monitor_list',
+  SelectMonitor: 'select_monitor',
   CommandLog: 'command_log',
   Disconnect: 'disconnect',
   Error: 'error',
@@ -15,7 +16,15 @@ export const MessageType = {
 export interface RemoteLinkMonitor {
   id: string;
   label: string;
-  primary: boolean;
+  isPrimary: boolean;
+  primary?: boolean;
+  width: number;
+  height: number;
+  scaleFactor: number;
+}
+
+export interface SelectMonitorPayload {
+  monitorId: string;
 }
 
 export interface PairingRequestPayload {

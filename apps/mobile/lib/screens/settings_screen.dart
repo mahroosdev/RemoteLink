@@ -120,31 +120,12 @@ class SettingsScreen extends StatelessWidget {
             final connected = state.isConnected;
             final count = state.detectedMonitorCount;
             return _RowShell(
-              title: 'Simulated Monitors',
+              title: 'Detected Screens',
               description: connected
                   ? (count == 1 ? '1 monitor detected' : '$count monitors detected')
-                  : 'Connect first to simulate detection',
+                  : 'Connect to PC to load screens',
               trailing: Icon(Icons.developer_mode_outlined,
                   color: context.colors.textMuted, size: 20),
-              onTap: () {
-                if (!connected) {
-                  ScaffoldMessenger.of(context)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(const SnackBar(
-                      content: Text('Connect to a PC first to simulate detected screens'),
-                      behavior: SnackBarBehavior.floating,
-                      duration: Duration(seconds: 2),
-                    ));
-                  return;
-                }
-                _showSelectorSheet(
-                  context,
-                  'Simulated Monitors',
-                  const ['1 Monitor', '2 Monitors', '3 Monitors'],
-                  count == 1 ? '1 Monitor' : '$count Monitors',
-                  (v) => state.setDetectedMonitorCount(int.parse(v.substring(0, 1))),
-                );
-              },
             );
           },
         ),

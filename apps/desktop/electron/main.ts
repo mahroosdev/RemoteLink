@@ -1,6 +1,6 @@
-import { app, BrowserWindow, ipcMain, desktopCapturer, clipboard } from 'electron'
+import { app, BrowserWindow, ipcMain, desktopCapturer, clipboard, screen, type Display } from 'electron'
 import path from 'node:path'
-import { RemoteLinkServer } from './remotelinkServer'
+import { RemoteLinkServer, type EngineMonitor } from './remotelinkServer'
 
 // The built directory structure
 process.env.DIST = path.join(__dirname, '../dist')
@@ -8,11 +8,45 @@ process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.
 
 let win: BrowserWindow | null
 
+function detectDisplays(): EngineMonitor[] {
+  const displays = screen.getAllDisplays()
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const sorted = [...displays].sort((a, b) => {
+    if (a.id === primaryDisplay.id) return -1
+    if (b.id === primaryDisplay.id) return 1
+    return a.bounds.x - b.bounds.x || a.bounds.y - b.bounds.y || a.id - b.id
+  })
+
+  return sorted.map((display: Display, index) => {
+    const width = Math.round(display.bounds.width)
+    const height = Math.round(display.bounds.height)
+    const protocolId = `display-${display.id}`
+    return {
+      id: index + 1,
+      protocolId,
+      name: `Screen ${index + 1}`,
+      resolution: `${width} x ${height}`,
+      refreshRate: 'Detected',
+      isPrimary: display.id === primaryDisplay.id,
+      isActive: false,
+      quality: 'High',
+      fps: 60,
+      bounds: {
+        x: Math.round(display.bounds.x),
+        y: Math.round(display.bounds.y),
+        width,
+        height,
+      },
+      scaleFactor: display.scaleFactor,
+    }
+  })
+}
+
 const remoteLinkServer = new RemoteLinkServer((state) => {
   BrowserWindow.getAllWindows().forEach((window) => {
     window.webContents.send('remotelink:state-changed', state)
   })
-})
+}, detectDisplays)
 
 function getAppIconPath() {
   return path.join(process.env.VITE_PUBLIC!, 'app-icon.ico')
@@ -84,4 +118,10 @@ app.on('activate', () => {
   }
 })
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  remoteLinkServer.refreshMonitors('Initial display detection')
+  screen.on('display-added', () => remoteLinkServer.refreshMonitors('Display configuration changed'))
+  screen.on('display-removed', () => remoteLinkServer.refreshMonitors('Display configuration changed'))
+  screen.on('display-metrics-changed', () => remoteLinkServer.refreshMonitors('Display configuration changed'))
+  createWindow()
+})

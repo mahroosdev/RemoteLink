@@ -1,10 +1,12 @@
 import React from 'react';
-import { Smartphone, ShieldCheck, ShieldAlert, Wifi, Info, ShieldOff } from 'lucide-react';
+import { Smartphone, ShieldCheck, ShieldAlert, Wifi, Info, ShieldOff, Monitor, Hash, Network } from 'lucide-react';
 import { Card, StatusPill, Button } from '../components/Common';
 
 const PairingDevicesPage = ({ state, onAction }: any) => {
   const hasRealRequest = Boolean(state.pendingRequest);
   const request = state.pendingRequest;
+  const connectedDevice = state.connectedDevice?.status === 'Connected' ? state.connectedDevice : null;
+  const selectedMonitor = state.monitors?.find((m: any) => m.protocolId === state.selectedMonitorId || m.isActive);
 
   return (
     <div className="grid">
@@ -14,8 +16,8 @@ const PairingDevicesPage = ({ state, onAction }: any) => {
          <StatusPill label={state.engineActive ? "Discovery Active" : "Discovery Offline"} type={state.engineActive ? "success" : "info"} />
       </div>
 
-      {/* Active Request Card */}
-      <Card className="col-12" title="Pending Authorization" icon={Wifi}>
+      {/* Request / Connected Device Card */}
+      <Card className="col-12" title={connectedDevice ? 'Connected Device' : 'Pending Authorization'} icon={connectedDevice ? Smartphone : Wifi}>
          {hasRealRequest && request ? (
            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)', padding: '24px', borderRadius: '16px', border: '1px solid var(--accent-amber)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
@@ -34,6 +36,41 @@ const PairingDevicesPage = ({ state, onAction }: any) => {
                  <Button variant="primary" style={{ padding: '12px 32px' }} onClick={() => onAction('APPROVE')}>Approve</Button>
                  <Button variant="secondary" style={{ padding: '12px 32px' }} onClick={() => onAction('DENY')}>Deny</Button>
               </div>
+           </div>
+         ) : connectedDevice ? (
+           <div style={{ background: 'var(--bg-main)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border-subtle)' }}>
+             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '24px', alignItems: 'flex-start' }}>
+               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '20px', minWidth: 0 }}>
+                 <div className="logo-container" style={{ width: '64px', height: '64px', borderRadius: '16px', background: 'var(--bg-sidebar)', border: '1px solid var(--border-subtle)', flex: '0 0 auto' }}>
+                   <Smartphone size={32} strokeWidth={1.5} />
+                 </div>
+                 <div style={{ minWidth: 0 }}>
+                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                     <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>{connectedDevice.name}</h4>
+                     <StatusPill label="CONNECTED" type="success" />
+                   </div>
+                   <p className="text-muted" style={{ margin: 0, fontSize: '13px' }}>Approved session active</p>
+                   <p className="text-muted" style={{ margin: '4px 0 0 0', fontSize: '12px' }}>
+                     {connectedDevice.os}{connectedDevice.appVersion ? ` ${connectedDevice.appVersion}` : ''}
+                   </p>
+                 </div>
+               </div>
+               <Button variant="danger" style={{ padding: '12px 22px', flex: '0 0 auto' }} onClick={() => onAction('DISCONNECT')}>
+                 Disconnect
+               </Button>
+             </div>
+
+             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '14px', marginTop: '24px' }}>
+               <DeviceFact icon={Network} label="Device IP" value={connectedDevice.ip || 'Unknown'} />
+               <DeviceFact icon={Hash} label="Device ID" value={connectedDevice.deviceId || 'Unavailable'} />
+               <DeviceFact icon={Info} label="Client" value={connectedDevice.appVersion ? `RemoteLink Mobile ${connectedDevice.appVersion}` : connectedDevice.os || 'RemoteLink Mobile'} />
+               <DeviceFact icon={Monitor} label="Selected Screen" value={selectedMonitor?.name ?? 'Screen unavailable'} />
+             </div>
+
+             <div style={{ borderTop: '1px solid var(--border-subtle)', marginTop: '20px', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
+               <span className="text-muted" style={{ fontSize: '13px' }}>Detected screens available to mobile</span>
+               <span style={{ fontWeight: 600, fontSize: '14px' }}>{state.monitors?.length ?? 0}</span>
+             </div>
            </div>
          ) : (
            <div style={{ textAlign: 'center', padding: '48px' }}>
@@ -121,5 +158,17 @@ const PairingDevicesPage = ({ state, onAction }: any) => {
     </div>
   );
 };
+
+const DeviceFact = ({ icon: Icon, label, value }: any) => (
+  <div style={{ padding: '14px 16px', background: 'var(--bg-sidebar)', borderRadius: '12px', border: '1px solid var(--border-subtle)', minWidth: 0 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+      <Icon size={14} color="var(--text-muted)" />
+      <span className="text-muted" style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px' }}>{label}</span>
+    </div>
+    <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={value}>
+      {value}
+    </p>
+  </div>
+);
 
 export default PairingDevicesPage;
