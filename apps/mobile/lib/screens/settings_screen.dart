@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../widgets/primary_button.dart';
 import '../theme/app_theme.dart';
 import '../models/app_state.dart';
 
@@ -10,22 +9,6 @@ class SettingsScreen extends StatelessWidget {
   final AppState state;
   const SettingsScreen({super.key, required this.state});
 
-  List<Widget> _connectionSection() => [
-        const _SectionTitle(title: 'Connection'),
-        _ToggleRow(
-          title: 'Auto Reconnect',
-          description: 'Resume last session automatically',
-          notifier: state.autoReconnect,
-          onChanged: state.setAutoReconnect,
-        ),
-        _ToggleRow(
-          title: 'Low Latency Mode',
-          description: 'Prioritize speed over quality',
-          notifier: state.lowLatencyMode,
-          onChanged: state.setLowLatencyMode,
-        ),
-      ];
-
   List<Widget> _controlsSection() => [
         const _SectionTitle(title: 'Controls'),
         _SliderRow(
@@ -34,12 +17,6 @@ class SettingsScreen extends StatelessWidget {
           onChanged: state.setMouseSensitivity,
           onChangeEnd: (v) => state.addLog('Mouse Speed set to ${v.toInt()}'),
         ),
-        _SliderRow(
-          title: 'Scroll Speed',
-          notifier: state.scrollVelocity,
-          onChanged: state.setScrollVelocity,
-          onChangeEnd: (v) => state.addLog('Scroll Speed set to ${v.toInt()}'),
-        ),
         _ToggleRow(
           title: 'Show Touchpad Pointer',
           description: 'Visible pointer feedback while using the touchpad',
@@ -47,56 +24,20 @@ class SettingsScreen extends StatelessWidget {
           onChanged: state.setShowTouchpadPointer,
         ),
         _SelectorRow(
-          title: 'Touchpad Mode',
-          sheetTitle: 'Touchpad Mode',
-          options: const ['Relative Trackpad', 'Absolute Touch', 'Gaming Mode'],
-          notifier: state.touchpadMode,
-          onSelect: state.setTouchpadMode,
-          icon: Icons.touch_app_outlined,
-        ),
-      ];
-
-  List<Widget> _displaySection() => [
-        const _SectionTitle(title: 'Display & Pipeline'),
-        _SelectorRow(
-          title: 'Stream Resolution',
-          sheetTitle: 'Resolution',
-          options: const ['720p', '1080p', '1440p'],
-          notifier: state.streamResolution,
-          onSelect: state.setStreamResolution,
-          icon: Icons.hd_outlined,
+          title: 'Pointer Size',
+          sheetTitle: 'Pointer Size',
+          options: AppState.pointerSizeOptions,
+          notifier: state.pointerSize,
+          onSelect: state.setPointerSize,
+          icon: Icons.near_me_outlined,
         ),
         _SelectorRow(
-          title: 'Frame Rate',
-          sheetTitle: 'Target FPS',
-          options: const ['15 FPS', '30 FPS', '60 FPS'],
-          notifier: state.frameRate,
-          onSelect: state.setFrameRate,
-          icon: Icons.speed_outlined,
-        ),
-      ];
-
-  List<Widget> _securitySection(BuildContext context) => [
-        const _SectionTitle(title: 'Security & Access'),
-        _ToggleRow(
-          title: 'Require PC Approval',
-          description: 'Require physical PC confirmation',
-          notifier: state.requirePcApproval,
-          onChanged: state.setRequirePcApproval,
-        ),
-        PrimaryButton(
-          label: 'Clear Trusted Devices',
-          isDanger: true,
-          onPressed: () {
-            state.clearTrustedDevices();
-            ScaffoldMessenger.of(context)
-              ..hideCurrentSnackBar()
-              ..showSnackBar(const SnackBar(
-                content: Text('All trusted device signatures cleared'),
-                behavior: SnackBarBehavior.floating,
-                duration: Duration(seconds: 2),
-              ));
-          },
+          title: 'Pointer Design',
+          sheetTitle: 'Pointer Design',
+          options: AppState.pointerStyleOptions,
+          notifier: state.pointerStyle,
+          onSelect: state.setPointerStyle,
+          icon: Icons.ads_click_outlined,
         ),
       ];
 
@@ -112,8 +53,8 @@ class SettingsScreen extends StatelessWidget {
         ),
       ];
 
-  List<Widget> _developerSection(BuildContext context) => [
-        const _SectionTitle(title: 'Developer'),
+  List<Widget> _statusSection(BuildContext context) => [
+        const _SectionTitle(title: 'Connection Status'),
         ListenableBuilder(
           listenable: state,
           builder: (context, _) {
@@ -122,9 +63,11 @@ class SettingsScreen extends StatelessWidget {
             return _RowShell(
               title: 'Detected Screens',
               description: connected
-                  ? (count == 1 ? '1 monitor detected' : '$count monitors detected')
+                  ? (count == 1
+                      ? '1 monitor detected'
+                      : '$count monitors detected')
                   : 'Connect to PC to load screens',
-              trailing: Icon(Icons.developer_mode_outlined,
+              trailing: Icon(Icons.monitor_outlined,
                   color: context.colors.textMuted, size: 20),
             );
           },
@@ -135,7 +78,8 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Configuration', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+        title: const Text('Configuration',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
       ),
       body: SafeArea(
         child: LayoutBuilder(
@@ -151,8 +95,6 @@ class SettingsScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          ..._connectionSection(),
-                          const SizedBox(height: 32),
                           ..._controlsSection(),
                         ],
                       ),
@@ -162,13 +104,9 @@ class SettingsScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          ..._displaySection(),
-                          const SizedBox(height: 32),
-                          ..._securitySection(context),
-                          const SizedBox(height: 32),
                           ..._interfaceSection(),
                           const SizedBox(height: 32),
-                          ..._developerSection(context),
+                          ..._statusSection(context),
                         ],
                       ),
                     ),
@@ -179,17 +117,11 @@ class SettingsScreen extends StatelessWidget {
             return ListView(
               padding: const EdgeInsets.all(24),
               children: [
-                ..._connectionSection(),
-                const SizedBox(height: 32),
                 ..._controlsSection(),
-                const SizedBox(height: 32),
-                ..._displaySection(),
-                const SizedBox(height: 32),
-                ..._securitySection(context),
                 const SizedBox(height: 32),
                 ..._interfaceSection(),
                 const SizedBox(height: 32),
-                ..._developerSection(context),
+                ..._statusSection(context),
               ],
             );
           },
@@ -210,24 +142,32 @@ void _showSelectorSheet(
   showModalBottomSheet(
     context: context,
     backgroundColor: c.elevatedCard,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
     builder: (sheetContext) => SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(vertical: 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: c.textPrimary)),
+            Text(title,
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: c.textPrimary)),
             const SizedBox(height: 16),
             ...options.map((opt) => ListTile(
-              dense: true,
-              title: Text(opt, style: TextStyle(color: opt == current ? c.blue : c.textPrimary)),
-              trailing: opt == current ? Icon(Icons.check, color: c.blue) : null,
-              onTap: () {
-                onSelect(opt);
-                Navigator.pop(sheetContext);
-              },
-            )),
+                  dense: true,
+                  title: Text(opt,
+                      style: TextStyle(
+                          color: opt == current ? c.blue : c.textPrimary)),
+                  trailing:
+                      opt == current ? Icon(Icons.check, color: c.blue) : null,
+                  onTap: () {
+                    onSelect(opt);
+                    Navigator.pop(sheetContext);
+                  },
+                )),
           ],
         ),
       ),
@@ -245,7 +185,11 @@ class _SectionTitle extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Text(
         title.toUpperCase(),
-        style: TextStyle(color: context.colors.textMuted, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5),
+        style: TextStyle(
+            color: context.colors.textMuted,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.5),
       ),
     );
   }
@@ -277,9 +221,14 @@ class _RowShell extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: c.textPrimary)),
+                  Text(title,
+                      style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: c.textPrimary)),
                   const SizedBox(height: 4),
-                  Text(description, style: TextStyle(fontSize: 12, color: c.textMuted)),
+                  Text(description,
+                      style: TextStyle(fontSize: 12, color: c.textMuted)),
                 ],
               ),
             ),
@@ -346,7 +295,8 @@ class _SelectorRow extends StatelessWidget {
       builder: (context, value, _) => _RowShell(
         title: title,
         description: value,
-        onTap: () => _showSelectorSheet(context, sheetTitle, options, value, onSelect),
+        onTap: () =>
+            _showSelectorSheet(context, sheetTitle, options, value, onSelect),
         trailing: Icon(icon, color: context.colors.textMuted, size: 20),
       ),
     );
@@ -379,18 +329,29 @@ class _SliderRow extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: c.textPrimary)),
-                Text(value.toInt().toString(), style: TextStyle(color: c.blue, fontWeight: FontWeight.bold, fontSize: 12)),
+                Expanded(
+                  child: Text(title,
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: c.textPrimary)),
+                ),
+                Text(value.toInt().toString(),
+                    style: TextStyle(
+                        color: c.blue,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12)),
               ],
             ),
             Slider(
               value: value,
               min: 1,
               max: 100,
+              divisions: 99,
+              label: value.toInt().toString(),
+              activeColor: c.blue,
               onChanged: onChanged,
               onChangeEnd: onChangeEnd,
-              activeColor: c.blue,
-              inactiveColor: c.border,
             ),
           ],
         ),

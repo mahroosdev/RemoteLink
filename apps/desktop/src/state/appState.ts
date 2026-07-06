@@ -43,6 +43,7 @@ export interface PendingPairingRequest {
 export interface EngineState {
   engineActive: boolean;
   serverStatus: 'offline' | 'starting' | 'listening' | 'error';
+  discoveryStatus: 'offline' | 'starting' | 'listening' | 'error';
   hostIp: string;
   hostIpCandidates: string[];
   hostIpFallbacks: string[];
@@ -52,11 +53,69 @@ export interface EngineState {
   connectedDevice: (DeviceInfo & { deviceId?: string; appVersion?: string }) | null;
   detectedMonitors: MonitorInfo[];
   selectedMonitorId: string | null;
+  previewStream: {
+    status: 'stopped' | 'starting' | 'active' | 'error';
+    monitorId: string | null;
+    fps: number;
+    lastFrameAt: string | null;
+    error?: string;
+  };
+  mobileScreenShare: {
+    status: 'off' | 'stopped' | 'starting' | 'sharing' | 'stopping' | 'error';
+    width: number;
+    height: number;
+    format: 'jpeg' | 'unknown';
+    data: string | null;
+    lastFrameAt: string | null;
+    error?: string;
+  };
   activityLog: LogItem[];
+  lastInputAt: string | null;
+  inputStatus: 'idle' | 'starting' | 'ready' | 'fallback' | 'unavailable';
+  heldModifiers: string[];
+  error?: string;
+  discoveryError?: string;
+}
+
+export interface FirewallRuleSummary {
+  displayName: string;
+  program: string;
+}
+
+export interface FirewallStatus {
+  platform: string;
+  supported: boolean;
+  appPath: string;
+  appName: string;
+  packaged: boolean;
+  tcpRuleName: string;
+  udpRuleName: string;
+  hasScopedTcpAllow: boolean;
+  hasScopedUdpAllow: boolean;
+  hasEnabledBlockRules: boolean;
+  blockRules: FirewallRuleSummary[];
+  checkedAt: string;
   error?: string;
 }
 
-export type AppTheme = 'Professional Dark' | 'Pure Black' | 'Light' | 'System Default';
+export interface FirewallRepairResult {
+  ok: boolean;
+  message: string;
+  status: FirewallStatus;
+}
+
+// Phone screen frame delivered over a dedicated IPC channel (kept out of
+// EngineState so the large base64 payload does not trigger app-wide re-renders).
+export interface MobileScreenFrame {
+  sessionId: string;
+  format: 'jpeg';
+  width: number;
+  height: number;
+  data: string;
+  timestamp: string;
+}
+
+export type AppTheme = 'Professional Dark' | 'Pure Black' | 'Light';
 
 export interface AppSettings {
   general: {
@@ -129,8 +188,16 @@ declare global {
       denyPairing: () => Promise<EngineState>;
       disconnectDevice: () => Promise<EngineState>;
       clearActivityLog: () => Promise<EngineState>;
+      releaseAllKeys: () => Promise<EngineState>;
+      stopPhoneScreenShare: () => Promise<EngineState>;
       copyText: (text: string) => Promise<{ ok: boolean }>;
+      getFirewallStatus: (force?: boolean) => Promise<FirewallStatus>;
+      repairLocalFirewall: () => Promise<FirewallRepairResult>;
       onEngineStateChanged: (callback: (state: EngineState) => void) => () => void;
+      onMobileScreenFrame: (callback: (frame: MobileScreenFrame) => void) => () => void;
     };
   }
 }
+
+
+

@@ -1,10 +1,11 @@
 import React from 'react';
-import { Gamepad2, ArrowLeft, Home, Menu, RotateCcw, Camera, Power, Cpu, ShieldCheck, Info } from 'lucide-react';
+import { Gamepad2, RotateCcw, Camera, Power, Cpu, ShieldCheck, Info } from 'lucide-react';
 import { Card, StatusPill, Button } from '../components/Common';
 import { PhonePreview } from '../components/PhonePreview';
 
-const MobileControlPage = ({ state, onAction }: any) => {
-  const isConnected = state.engineActive && state.connectedDevice.status === 'Connected';
+// Archived mock only. Do not route. Phase 6C requires separate planning and approval.
+const ArchivedPhase6CMockDoNotRoute = ({ state, onAction }: any) => {
+  const isConnected = state.engineActive && state.connectedDevice?.status === 'Connected';
 
   return (
     <div className="grid">
@@ -13,15 +14,13 @@ const MobileControlPage = ({ state, onAction }: any) => {
          <p className="text-secondary">Simulate touch gestures and navigate your Android device remotely.</p>
       </div>
 
-      {/* Controller Area - Perfectly Centered */}
       <div className="col-8" style={{ display: 'flex', justifyContent: 'center' }}>
         <Card style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', minHeight: '750px', background: 'var(--bg-card-elevated)', position: 'relative' }}>
-          
           <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-             <PhonePreview 
-                rotation={state.mobileRotation} 
-                engineActive={state.engineActive} 
-                connected={isConnected} 
+             <PhonePreview
+                rotation={state.mobileRotation}
+                engineActive={state.engineActive}
+                connected={isConnected}
              />
           </div>
 
@@ -39,7 +38,6 @@ const MobileControlPage = ({ state, onAction }: any) => {
         </Card>
       </div>
 
-      {/* Side Control Panels */}
       <div className="col-4">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
            <Card title="Input Protocol" icon={Cpu}>
@@ -75,7 +73,7 @@ const MobileControlPage = ({ state, onAction }: any) => {
 
            <Card title="Privacy Notice" icon={Info} style={{ background: 'var(--bg-sidebar)' }}>
               <p className="text-muted" style={{ fontSize: '12.5px', lineHeight: 1.6, margin: 0 }}>
-                 RemoteLink Pro only allows interaction with devices that have physically approved this PC as a controller. 
+                 RemoteLink Pro only allows interaction with devices that have physically approved this PC as a controller.
                  Encrypted input channels prevent man-in-the-middle interception.
               </p>
            </Card>
@@ -85,4 +83,4 @@ const MobileControlPage = ({ state, onAction }: any) => {
   );
 };
 
-export default MobileControlPage;
+export default ArchivedPhase6CMockDoNotRoute;

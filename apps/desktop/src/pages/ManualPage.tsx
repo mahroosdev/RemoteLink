@@ -14,9 +14,8 @@ const ManualPage = () => (
            <section>
               <h3 style={{ fontSize: '18px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}><Wifi size={18} /> Getting Started</h3>
               <p className="text-secondary" style={{ lineHeight: 1.6 }}>
-                 RemoteLink Pro establishes a local WebSocket pairing session on your private network. 
-                 To begin, start the Remote Engine in the header. The desktop listens on port 47777 
-                 and waits for pairing requests from your Android device.
+                 RemoteLink connects your phone and PC over your trusted Wi-Fi or hotspot after you approve pairing.
+                 To begin, start the Remote Engine in the header and connect from your Android device. Internet is not required for local mode.
               </p>
            </section>
 
@@ -39,16 +38,20 @@ const ManualPage = () => (
               <p className="text-secondary" style={{ lineHeight: 1.6 }}>
                  Step 1: Start Remote Engine. Step 2: Make sure phone and PC are on the same Wi-Fi.
                  Step 3: On mobile, enter the Recommended Host IP and Pairing Code. Step 4: Approve the request on PC.
-                 Step 5: If Windows Firewall prompts, allow RemoteLink Pro / Node / Electron on Private networks.
-                 If the phone cannot connect, try another detected LAN IP from the desktop list.
+                 Step 5: If the phone cannot reach this PC, open Pairing & Devices and use Fix Local Firewall Access.
+                 If scan finds nothing, enter the Recommended Host IP manually; some hotspots block discovery scan.
+              </p>
+              <p className="text-secondary" style={{ lineHeight: 1.6, marginTop: '12px' }}>
+                 Do not use RemoteLink on untrusted public Wi-Fi unless you understand the local network risk.
+                 If Windows asks for local network permission, allow RemoteLink only on trusted private networks or your own hotspot.
               </p>
            </section>
 
            <section>
               <h3 style={{ fontSize: '18px', marginBottom: '16px' }}>Interactive Controls</h3>
               <p className="text-secondary" style={{ lineHeight: 1.6, marginBottom: '16px' }}>
-                 Once connected, your phone sends command_log messages for touchpad, click, keyboard, and shortcut actions.
-                 Phase 1 logs these commands in the desktop activity stream only; it does not execute OS-level input.
+                 Once connected, your phone can send real mouse and keyboard input to the paired Windows PC.
+                 Only approve devices you trust. Disconnecting the session stops input and preview streaming.
               </p>
               <div style={{ padding: '20px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
                  <h4 style={{ fontSize: '14px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}><Zap size={14} color="var(--accent-amber)" /> Sticky Modifiers</h4>
@@ -63,9 +66,8 @@ const ManualPage = () => (
            <section>
               <h3 style={{ fontSize: '18px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}><ShieldCheck size={18} color="var(--accent-green)" /> Privacy & Security</h3>
               <p className="text-secondary" style={{ lineHeight: 1.6 }}>
-                 This utility strictly prohibits background or hidden access. Every connection attempt 
-                 requires physical approval on this PC screen. An active session indicator is 
-                 always visible while a remote device is controlling your cursor.
+                 Every new mobile session requires the desktop engine, matching pairing code, and host approval.
+                 Connection status is shown in the app. Mobile screen sharing requires explicit Android screen-capture consent.
               </p>
            </section>
         </div>
@@ -76,7 +78,11 @@ const ManualPage = () => (
            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               <div>
                  <h4 style={{ fontSize: '13px', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}><AlertTriangle size={14} color="var(--accent-amber)" /> Device not found</h4>
-                 <p className="text-muted" style={{ fontSize: '12px' }}>Ensure both devices are on the same Wi-Fi SSID and AP Isolation is disabled in router settings.</p>
+                 <p className="text-muted" style={{ fontSize: '12px' }}>Ensure both devices are on the same Wi-Fi or hotspot. Use the Recommended Host IP if scan finds nothing.</p>
+              </div>
+              <div>
+                 <h4 style={{ fontSize: '13px', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}><ShieldCheck size={14} color="var(--accent-amber)" /> Firewall</h4>
+                 <p className="text-muted" style={{ fontSize: '12px' }}>Use Pairing & Devices &gt; Fix Local Firewall Access. It requests Windows permission for RemoteLink local network access.</p>
               </div>
               <div>
                  <h4 style={{ fontSize: '13px', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}><Zap size={14} color="var(--accent-amber)" /> High Latency</h4>
@@ -84,7 +90,7 @@ const ManualPage = () => (
               </div>
               <div>
                  <h4 style={{ fontSize: '13px', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}><Keyboard size={14} color="var(--accent-amber)" /> Stuck Modifiers</h4>
-                 <p className="text-muted" style={{ fontSize: '12px' }}>If keys remain "held", go to Settings &gt; Shortcut Keys and click "Release All Virtual Keys".</p>
+                 <p className="text-muted" style={{ fontSize: '12px' }}>If keys remain "held", go to Settings &gt; Shortcut Keys and click "Release All Virtual Keys", or use Release All Keys on Overview.</p>
               </div>
            </div>
         </Card>
@@ -92,7 +98,7 @@ const ManualPage = () => (
         <div style={{ marginTop: '24px', padding: '24px', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '16px', border: '1px solid rgba(59, 130, 246, 0.1)' }}>
            <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '8px' }}><Globe size={16} /> Worldwide Access</h4>
            <p className="text-muted" style={{ fontSize: '12px', margin: 0 }}>
-              Worldwide remote access is not implemented in Phase 1. Local network pairing is the only supported mode.
+              Worldwide remote access is not implemented in this version. Local network pairing is the only supported mode.
            </p>
         </div>
      </div>

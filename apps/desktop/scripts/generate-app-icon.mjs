@@ -101,21 +101,25 @@ function roundedRectCoverage(x, y, rect) {
   return distance <= radius ? 1 : 0;
 }
 
-const bgTop = hexToRgb('#6f7682');
-const bgMid = hexToRgb('#4f5661');
-const bgBottom = hexToRgb('#2f3540');
+const bgTop = hexToRgb('#3b414b');
+const bgMid = hexToRgb('#232831');
+const bgBottom = hexToRgb('#0f1318');
 const mark = hexToRgb('#ffffff');
-const leftMark = [[45, 34], [26, 54], [45, 74]];
-const rightMark = [[63, 34], [82, 54], [63, 74]];
+const shadow = hexToRgb('#000000');
+const tileRect = { left: 6, top: 5, right: 102, bottom: 103, radius: 24 };
+const leftMark = [[43, 34], [25, 54], [43, 74]];
+const rightMark = [[65, 34], [83, 54], [65, 74]];
 
 function backgroundColor(x, y) {
-  const t = Math.max(0, Math.min(1, (x + y - 14) / 188));
-  const base = t < 0.48
+  const t = Math.max(0, Math.min(1, (x * 0.63 + y - 11) / 162));
+  let base = t < 0.48
     ? mixRgb(bgTop, bgMid, t / 0.48)
     : mixRgb(bgMid, bgBottom, (t - 0.48) / 0.52);
-  const glowDistance = Math.hypot(x - 26, y - 18);
-  const glow = Math.max(0, 1 - glowDistance / 78) * 0.22;
-  return mixRgb(base, hexToRgb('#ffffff'), glow);
+  const glowDistance = Math.hypot(x - 25, y - 13);
+  const glow = Math.max(0, 1 - glowDistance / 82) * 0.18;
+  base = mixRgb(base, hexToRgb('#ffffff'), glow);
+  const lowerShade = Math.max(0, (y - 78) / 30) * 0.035;
+  return mixRgb(base, shadow, lowerShade);
 }
 
 function distanceToSegment(x, y, a, b) {
@@ -139,14 +143,32 @@ function strokeCoverage(x, y, points, width) {
   return points.some(([px, py]) => Math.hypot(x - px, y - py) <= radius) ? 1 : 0;
 }
 
-function markCoverage(x, y) {
-  return strokeCoverage(x, y, leftMark, 7) || strokeCoverage(x, y, rightMark, 7) ? 1 : 0;
+function roundedRectSignedDistance(x, y, rect) {
+  const { left, top, right, bottom, radius } = rect;
+  const centerX = (left + right) / 2;
+  const centerY = (top + bottom) / 2;
+  const halfWidth = (right - left) / 2 - radius;
+  const halfHeight = (bottom - top) / 2 - radius;
+  const qx = Math.abs(x - centerX) - halfWidth;
+  const qy = Math.abs(y - centerY) - halfHeight;
+  return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - radius;
+}
+
+function markCoverage(x, y, size) {
+  const width = size <= 24 ? 9.8 : size <= 32 ? 9.2 : 8.5;
+  return strokeCoverage(x, y, leftMark, width) || strokeCoverage(x, y, rightMark, width) ? 1 : 0;
+}
+
+function shadowCoverage(x, y) {
+  const distance = roundedRectSignedDistance(x, y - 3.2, tileRect);
+  if (distance <= 0) return 0;
+  const falloff = Math.max(0, 1 - distance / 15);
+  return falloff * falloff * 0.32;
 }
 
 function renderIcon(size) {
   const sampleCount = size <= 32 ? 5 : 4;
   const rgba = Buffer.alloc(size * size * 4);
-  const rect = { left: 4, top: 4, right: 104, bottom: 104, radius: 26 };
 
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
@@ -159,15 +181,17 @@ function renderIcon(size) {
         for (let sx = 0; sx < sampleCount; sx += 1) {
           const vx = ((x + (sx + 0.5) / sampleCount) / size) * 108;
           const vy = ((y + (sy + 0.5) / sampleCount) / size) * 108;
-          const bgAlpha = roundedRectCoverage(vx, vy, rect);
-          if (bgAlpha === 0) continue;
+          const tileAlpha = roundedRectCoverage(vx, vy, tileRect);
+          const dropShadow = tileAlpha ? 0 : shadowCoverage(vx, vy);
+          if (tileAlpha === 0 && dropShadow === 0) continue;
 
-          const symbol = markCoverage(vx, vy);
-          const color = symbol ? mark : backgroundColor(vx, vy);
-          alpha += 1;
-          red += color[0];
-          green += color[1];
-          blue += color[2];
+          const sampleAlpha = tileAlpha ? 1 : dropShadow;
+          const symbol = tileAlpha && markCoverage(vx, vy, size);
+          const color = symbol ? mark : tileAlpha ? backgroundColor(vx, vy) : shadow;
+          alpha += sampleAlpha;
+          red += color[0] * sampleAlpha;
+          green += color[1] * sampleAlpha;
+          blue += color[2] * sampleAlpha;
         }
       }
 
@@ -187,24 +211,51 @@ function renderIcon(size) {
   return encodePng(size, size, rgba);
 }
 
-const sizes = [16, 24, 32, 48, 64, 128, 256];
+const sizes = [16, 24, 32, 48, 64, 128, 256, 512];
 const pngs = sizes.map((size) => ({ size, bytes: renderIcon(size) }));
+const appIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 108 108">
+  <defs>
+    <linearGradient id="bg" x1="10" y1="6" x2="98" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3b414b"/>
+      <stop offset="0.48" stop-color="#232831"/>
+      <stop offset="1" stop-color="#0f1318"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="25" cy="13" r="82" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="0.48" stop-color="#ffffff" stop-opacity="0.07"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="6" y="5" width="96" height="98" rx="24" fill="url(#bg)"/>
+  <rect x="6" y="5" width="96" height="98" rx="24" fill="url(#glow)"/>
+  <rect x="6.5" y="5.5" width="95" height="97" rx="23.5" fill="none" stroke="#ffffff" stroke-opacity="0.14"/>
+  <g fill="none" stroke="#ffffff" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M43 34 L25 54 L43 74"/>
+    <path d="M65 34 L83 54 L65 74"/>
+  </g>
+</svg>
+`;
+
+fs.writeFileSync(path.join(publicDir, 'remotelink-app.svg'), appIconSvg);
 
 for (const { size, bytes } of pngs) {
-  fs.writeFileSync(path.join(iconsDir, `app-icon-${size}.png`), bytes);
+  fs.writeFileSync(path.join(iconsDir, `remotelink-app-${size}.png`), bytes);
 }
 
-fs.writeFileSync(path.join(publicDir, 'app-icon.png'), pngs.find(({ size }) => size === 256).bytes);
+fs.writeFileSync(path.join(publicDir, 'remotelink-app.png'), pngs.find(({ size }) => size === 512).bytes);
+fs.writeFileSync(path.join(publicDir, 'remotelink-app-256.png'), pngs.find(({ size }) => size === 256).bytes);
+
+const icoPngs = pngs.filter(({ size }) => size <= 256);
 
 const header = Buffer.alloc(6);
 header.writeUInt16LE(0, 0);
 header.writeUInt16LE(1, 2);
-header.writeUInt16LE(pngs.length, 4);
+header.writeUInt16LE(icoPngs.length, 4);
 
-const entries = Buffer.alloc(16 * pngs.length);
+const entries = Buffer.alloc(16 * icoPngs.length);
 let offset = 6 + entries.length;
 
-pngs.forEach(({ size, bytes }, index) => {
+icoPngs.forEach(({ size, bytes }, index) => {
   const entry = index * 16;
   entries[entry] = size === 256 ? 0 : size;
   entries[entry + 1] = size === 256 ? 0 : size;
@@ -215,8 +266,8 @@ pngs.forEach(({ size, bytes }, index) => {
   offset += bytes.length;
 });
 
-fs.writeFileSync(path.join(publicDir, 'app-icon.ico'), Buffer.concat([
+fs.writeFileSync(path.join(publicDir, 'remotelink-app.ico'), Buffer.concat([
   header,
   entries,
-  ...pngs.map(({ bytes }) => bytes),
+  ...icoPngs.map(({ bytes }) => bytes),
 ]));

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Monitor, CheckCircle2, RefreshCcw } from 'lucide-react';
-import { Card, Select, Button } from '../components/Common';
+import { Card, Button } from '../components/Common';
 import { MonitorPreview } from '../components/MonitorPreview';
 
 const MonitorsPage = ({ state, onAction }: any) => {
@@ -75,14 +75,14 @@ const MonitorsPage = ({ state, onAction }: any) => {
     <div className="grid">
       <div className="col-12" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-           <h2 style={{ fontSize: '22px', fontWeight: 500 }}>Monitor Configuration</h2>
-           <p className="text-muted">Broadcast captured frame data to remote devices.</p>
+           <h2 style={{ fontSize: '22px', fontWeight: 500 }}>Local Desktop Preview</h2>
+           <p className="text-muted">Inspect local desktop capture sources on this PC. Mobile streaming is controlled from the Android app.</p>
         </div>
-        <Button onClick={refreshSources}><RefreshCcw size={14} /> Rescan Interfaces</Button>
+        <Button onClick={refreshSources}><RefreshCcw size={14} /> Refresh Sources</Button>
       </div>
 
       <div className="col-8">
-        <Card title="Hardware Interface Preview" icon={Monitor}>
+        <Card title="Local Capture Preview" icon={Monitor}>
            <MonitorPreview 
               engineActive={state.engineActive} 
               previewActive={state.previewActive} 
@@ -91,10 +91,10 @@ const MonitorsPage = ({ state, onAction }: any) => {
            />
            <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'space-between' }}>
               <div style={{ maxWidth: '480px' }}>
-                 <p className="text-secondary" style={{ fontSize: '14px', marginBottom: '8px', fontWeight: 500 }}>Capture Protocol: Desktop Duplication API</p>
+                 <p className="text-secondary" style={{ fontSize: '14px', marginBottom: '8px', fontWeight: 500 }}>Local preview only</p>
                  <p className="text-muted" style={{ fontSize: '13px', lineHeight: 1.6 }}>
-                    Direct memory access capture ensures sub-millisecond frame latency. 
-                    Broadcast resolution is dynamically scaled based on network throughput.
+                    This is a local preview on this PC only. It does not start, stop,
+                    or change the screen shown on the paired phone.
                  </p>
               </div>
            </div>
@@ -103,7 +103,7 @@ const MonitorsPage = ({ state, onAction }: any) => {
 
       <div className="col-4">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <h4 style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Active Display Targets</h4>
+          <h4 style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Detected Screens</h4>
           {state.monitors.map((m: any) => (
             <Card key={m.id} style={{ 
               borderColor: m.isActive ? 'var(--accent-blue)' : 'var(--border-subtle)',
@@ -118,16 +118,10 @@ const MonitorsPage = ({ state, onAction }: any) => {
                 </div>
                 {m.isActive && <CheckCircle2 size={18} color="var(--accent-green)" />}
               </div>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                 <div style={{ pointerEvents: 'none', opacity: 0.8 }}>
-                    <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>PROFILE</label>
-                    <Select value={m.quality} onChange={() => {}} options={['Low', 'Medium', 'High']} disabled />
-                 </div>
-                 <div style={{ pointerEvents: 'none', opacity: 0.8 }}>
-                    <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>FPS CAP</label>
-                    <Select value={String(m.fps)} onChange={() => {}} options={['30', '60', '120']} disabled />
-                 </div>
+              <div style={{ padding: '12px', borderRadius: '12px', background: 'var(--bg-main)', border: '1px solid var(--border-subtle)' }}>
+                 <p className="text-muted" style={{ margin: 0, fontSize: '12px', lineHeight: 1.5 }}>
+                    Selects the local diagnostic preview source on this desktop. Phone preview screen selection is handled from the mobile app during a paired session.
+                 </p>
               </div>
             </Card>
           ))}
@@ -137,14 +131,12 @@ const MonitorsPage = ({ state, onAction }: any) => {
             </Card>
           )}
           
-          <Card title="Detected PIDs" style={{ background: 'var(--bg-sidebar)', padding: '20px' }}>
-             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {sources.slice(0, 4).map(s => (
-                  <div key={s.id} style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                     {s.name} <span style={{ opacity: 0.5 }}>({s.id.split(':')[0]})</span>
-                  </div>
-                ))}
-             </div>
+          <Card title="Local Capture Sources" style={{ background: 'var(--bg-sidebar)', padding: '20px' }}>
+             <p className="text-muted" style={{ margin: 0, fontSize: '13px', lineHeight: 1.6 }}>
+                {sources.length > 0
+                  ? `${sources.length} local capture source${sources.length === 1 ? '' : 's'} available for desktop preview. Source names are hidden in the normal app view.`
+                  : 'Refresh sources to check whether this PC can provide a local desktop preview.'}
+             </p>
           </Card>
         </div>
       </div>

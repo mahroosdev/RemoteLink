@@ -3,6 +3,7 @@ import { LayoutDashboard, Smartphone, Monitor, Gamepad2, History, Settings, Book
 import { AppLogo } from './Common';
 
 const Sidebar = ({ activeTab, onTabChange, engineActive, connectedDevice }: { activeTab: string, onTabChange: (tab: string) => void, engineActive: boolean, connectedDevice: any }) => {
+  const deviceConnected = connectedDevice?.status === 'Connected';
   const NavItem = ({ icon: Icon, label, tab }: any) => (
     <div className={`nav-item ${activeTab === tab ? 'active' : ''}`} onClick={() => onTabChange(tab)}>
       <Icon size={18} strokeWidth={2} /> <span>{label}</span>
@@ -40,11 +41,11 @@ const Sidebar = ({ activeTab, onTabChange, engineActive, connectedDevice }: { ac
             boxShadow: engineActive ? '0 0 10px var(--accent-green)' : 'none'
           }}></div>
           <span className="text-muted" style={{ fontWeight: 700, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-            {engineActive ? (connectedDevice.status === 'Connected' ? 'Broadcasting active' : 'Engine active') : 'Engine Offline'}
+            {engineActive ? (deviceConnected ? 'Session active' : 'Engine active') : 'Engine Offline'}
           </span>
           </div>
           <p style={{ margin: '0 0 4px 0', fontSize: '13.5px', fontWeight: 500, color: 'var(--text-primary)' }}>
-          {connectedDevice.status === 'Connected' ? 'RemoteLink Active' : 'Waiting for Device'}
+          {deviceConnected ? 'RemoteLink Active' : 'Waiting for Device'}
           </p>
         <div style={{ width: '100%', height: '4px', background: 'var(--border-subtle)', borderRadius: '10px', overflow: 'hidden', marginTop: '12px' }}>
           <div style={{ width: engineActive ? '100%' : '0%', height: '100%', background: engineActive ? 'var(--accent-green)' : 'var(--text-muted)', transition: 'width 0.5s ease' }}></div>

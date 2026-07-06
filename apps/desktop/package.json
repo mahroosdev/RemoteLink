@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "main": "dist-electron/main.js",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 127.0.0.1 --port 5173 --strictPort",
     "build": "tsc && vite build",
     "electron": "electron .",
     "package": "npm run build && electron-builder",
     "preview": "vite preview",
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\""
+    "electron:dev": "concurrently -k \"npm run dev\" \"wait-on http://127.0.0.1:5173 && electron .\""
   },
   "build": {
     "appId": "com.nexadigital.remotelink",
@@ -18,7 +18,7 @@
       "dist-electron/**/*"
     ],
     "win": {
-      "icon": "public/app-icon.ico"
+      "icon": "public/remotelink-app.ico"
     }
   },
   "dependencies": {

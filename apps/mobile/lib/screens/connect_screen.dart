@@ -4,6 +4,7 @@ import '../widgets/app_logo.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/status_pill.dart';
 import '../models/app_state.dart';
+import '../services/pairing_service.dart';
 
 class ConnectScreen extends StatefulWidget {
   final AppState state;
@@ -19,9 +20,9 @@ class _ConnectScreenState extends State<ConnectScreen> {
   final _ipController = TextEditingController();
   final _codeController = TextEditingController();
   bool _isScanning = false;
+  bool _showAdvancedDetails = false;
 
-  /// True once a scan finished without finding a desktop (always the case
-  /// until real discovery exists — scans never fabricate a result).
+  /// True once a scan finished without finding a desktop.
   bool _scanFoundNothing = false;
 
   /// Local status-pill note shown while disconnected:
@@ -30,6 +31,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
   String? _statusNote;
 
   static final _ipv4Pattern = RegExp(r'^\d{1,3}(\.\d{1,3}){3}$');
+  static final _hostPattern = RegExp(r'^[a-zA-Z0-9.-]+$');
   static final _codePattern = RegExp(r'^\d{6}$');
 
   @override
@@ -59,13 +61,22 @@ class _ConnectScreenState extends State<ConnectScreen> {
       ));
   }
 
-  bool _isValidIp(String ip) {
-    if (!_ipv4Pattern.hasMatch(ip)) return false;
-    return ip.split('.').every((octet) => (int.tryParse(octet) ?? 256) <= 255);
+  bool _isValidHost(String host) {
+    if (host.isEmpty || host.length > 253 || !_hostPattern.hasMatch(host)) {
+      return false;
+    }
+    if (_ipv4Pattern.hasMatch(host)) {
+      return host
+          .split('.')
+          .every((octet) => (int.tryParse(octet) ?? 256) <= 255);
+    }
+    if (!host.contains('.')) return false;
+    return host.split('.').every((part) =>
+        part.isNotEmpty && !part.startsWith('-') && !part.endsWith('-'));
   }
 
   String? _hostIpWarning(String ip) {
-    final value = ip.trim();
+    final value = normalizeRemoteLinkHost(ip);
     if (value.startsWith('192.168.56.') ||
         value.startsWith('127.') ||
         value.startsWith('169.254.')) {
@@ -75,10 +86,10 @@ class _ConnectScreenState extends State<ConnectScreen> {
   }
 
   Future<void> _connect() async {
-    final ip = _ipController.text.trim();
+    final ip = normalizeRemoteLinkHost(_ipController.text);
     final code = _codeController.text.trim();
 
-    if (!_isValidIp(ip)) {
+    if (!_isValidHost(ip)) {
       _showSnack(
           'Enter a valid Host IP, e.g. 192.168.0.24', context.colors.red);
       return;
@@ -89,12 +100,12 @@ class _ConnectScreenState extends State<ConnectScreen> {
     }
 
     setState(() => _statusNote = null);
+    _ipController.text = ip;
     await widget.state.connect(ip, code);
     if (!mounted) return;
     if (!widget.state.isConnected) {
       _showSnack(
-        widget.state.lastConnectionError ??
-            'Connection failed. Start desktop app, turn engine ON, check Host IP, same Wi-Fi, and firewall.',
+        _friendlyConnectionMessage(widget.state.lastConnectionError),
         context.colors.red,
       );
       return;
@@ -103,26 +114,33 @@ class _ConnectScreenState extends State<ConnectScreen> {
     widget.onConnected();
   }
 
-  void _scanDevices() {
+  Future<void> _scanDevices() async {
     setState(() {
       _isScanning = true;
       _scanFoundNothing = false;
       _statusNote = null;
     });
-    widget.state.addLog('Scanning local network for devices...');
+    final results = await widget.state.scanForDesktops();
+    if (!mounted) return;
+    if (results.isEmpty) {
+      setState(() {
+        _isScanning = false;
+        _scanFoundNothing = true;
+        _statusNote = 'NO DESKTOP FOUND';
+      });
+      return;
+    }
 
-    // Honest result: until local discovery/pairing is implemented, a scan
-    // finds nothing. It must never invent a desktop.
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        setState(() {
-          _isScanning = false;
-          _scanFoundNothing = true;
-          _statusNote = 'NO DESKTOP FOUND';
-        });
-        widget.state.addLog('Scan complete: no RemoteLink desktop found');
-      }
+    final desktop = results.first;
+    _ipController.text = desktop.hostIp;
+    widget.state.setHostIp(desktop.hostIp);
+    setState(() {
+      _isScanning = false;
+      _scanFoundNothing = false;
+      _statusNote = 'DESKTOP FOUND';
     });
+    _showSnack(
+        'Found ${desktop.name} at ${desktop.hostIp}', context.colors.green);
   }
 
   @override
@@ -283,22 +301,49 @@ class _ConnectScreenState extends State<ConnectScreen> {
             if (_scanFoundNothing) ...[
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
                 decoration: BoxDecoration(
                   color: c.card,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: c.border),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.search_off, size: 16, color: c.textMuted),
-                    const SizedBox(width: 10),
-                    Flexible(
-                      child: Text('No RemoteLink desktop found',
-                          style:
-                              TextStyle(fontSize: 13, color: c.textSecondary)),
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: c.amber.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.search_off, size: 16, color: c.amber),
+                    ),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'No desktop found',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: c.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'Use the Recommended Host IP.\nSome hotspots block scan.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              height: 1.35,
+                              color: c.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -332,6 +377,10 @@ class _ConnectScreenState extends State<ConnectScreen> {
 
   Widget _buildStatusCard(
       BuildContext context, AppColors c, bool isConnected, bool isConnecting) {
+    final connectionError = widget.state.lastConnectionError;
+    final hasConnectionError =
+        connectionError != null && connectionError.isNotEmpty;
+    final friendlyError = _friendlyConnectionMessage(connectionError);
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -358,12 +407,15 @@ class _ConnectScreenState extends State<ConnectScreen> {
                     ? c.green
                     : isConnecting
                         ? c.amber
-                        : _statusNote == 'NO DESKTOP FOUND' ||
-                                widget.state.status ==
-                                    ConnectionStatus.denied ||
-                                widget.state.status == ConnectionStatus.failed
-                            ? c.amber
-                            : c.textMuted,
+                        : _statusNote == 'DESKTOP FOUND'
+                            ? c.green
+                            : _statusNote == 'NO DESKTOP FOUND' ||
+                                    widget.state.status ==
+                                        ConnectionStatus.denied ||
+                                    widget.state.status ==
+                                        ConnectionStatus.failed
+                                ? c.amber
+                                : c.textMuted,
               ),
             ],
           ),
@@ -374,6 +426,71 @@ class _ConnectScreenState extends State<ConnectScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(color: c.textMuted, fontSize: 12, height: 1.4),
           ),
+          if (hasConnectionError) ...[
+            const SizedBox(height: 12),
+            Text(
+              friendlyError,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 13,
+                  height: 1.4,
+                  fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 10),
+            _buildConnectionTips(c),
+            const SizedBox(height: 10),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                TextButton(
+                  onPressed: isConnecting ? null : _connect,
+                  child: const Text('Retry'),
+                ),
+                TextButton(
+                  onPressed: isConnecting || _isScanning ? null : _scanDevices,
+                  child: const Text('Scan again'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(
+                        () => _showAdvancedDetails = !_showAdvancedDetails);
+                  },
+                  child: Text(_showAdvancedDetails
+                      ? 'Hide advanced details'
+                      : 'Advanced details'),
+                ),
+              ],
+            ),
+            if (_showAdvancedDetails) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: c.card,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: c.border),
+                ),
+                child: Text(
+                  _publicAdvancedConnectionDetails(connectionError),
+                  style: TextStyle(
+                    color: c.textMuted,
+                    fontSize: 11.5,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Text(
+              'Manual setup: open the desktop app, turn Engine Online, use the Recommended Host IP, then approve the request on the PC.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: c.textMuted, fontSize: 11, height: 1.35),
+            ),
+          ],
         ],
       ),
     );
@@ -394,5 +511,64 @@ class _ConnectScreenState extends State<ConnectScreen> {
       case ConnectionStatus.disconnected:
         return 'DISCONNECTED';
     }
+  }
+
+  Widget _buildConnectionTips(AppColors c) {
+    final tips = [
+      'Make sure the desktop app is open and Engine Online.',
+      'Make sure both devices are on the same Wi-Fi or hotspot.',
+      'Windows Firewall may be blocking RemoteLink.',
+      'Try the Recommended Host IP from the desktop app.',
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: tips
+          .map((tip) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('• ',
+                        style: TextStyle(color: c.textMuted, fontSize: 11)),
+                    Expanded(
+                      child: Text(
+                        tip,
+                        style: TextStyle(
+                            color: c.textMuted, fontSize: 11, height: 1.3),
+                      ),
+                    ),
+                  ],
+                ),
+              ))
+          .toList(growable: false),
+    );
+  }
+
+  String _friendlyConnectionMessage(String? technicalError) {
+    final value = technicalError ?? '';
+    if (value.toLowerCase().contains('pairing code')) {
+      return 'Pairing code mismatch.';
+    }
+    if (value.toLowerCase().contains('denied')) {
+      return 'Pairing was denied on the PC.';
+    }
+    if (value.toLowerCase().contains('closed by desktop')) {
+      return 'The PC closed the connection.';
+    }
+    return 'Cannot reach the PC.';
+  }
+
+  String _publicAdvancedConnectionDetails(String? technicalError) {
+    final value = technicalError ?? '';
+    if (value.toLowerCase().contains('pairing code')) {
+      return 'Pairing code mismatch.\nRe-enter the 6-digit code shown in the desktop app.';
+    }
+    if (value.toLowerCase().contains('denied')) {
+      return 'Pairing was denied on the PC.\nApprove the request on the desktop app to continue.';
+    }
+    return 'Connection check failed.\n'
+        'The phone could not reach the desktop app.\n'
+        'Check that both devices are on the same Wi-Fi or hotspot.\n'
+        'If scan fails, enter the Recommended Host IP manually.';
   }
 }

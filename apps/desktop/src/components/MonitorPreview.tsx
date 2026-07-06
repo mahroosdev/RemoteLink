@@ -36,11 +36,11 @@ export const MonitorPreview = ({
                   onClick={onTogglePreview}
                   style={{ backdropFilter: 'blur(10px)', padding: '12px 24px' }}
                >
-                  <Square size={14} fill="currentColor" /> STOP PREVIEW
+                  <Square size={14} fill="currentColor" /> Stop Preview
                </Button>
             </div>
             <div style={{ position: 'absolute', top: '24px', left: '24px' }}>
-               <StatusPill label="LIVE BROADCAST" type="success" />
+               <StatusPill label="LIVE PREVIEW" type="success" />
             </div>
          </>
        )}

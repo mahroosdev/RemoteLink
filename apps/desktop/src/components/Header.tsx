@@ -33,7 +33,7 @@ const Header = ({ activeTab, localIP, engineActive, serverStatus, onToggleEngine
       <div style={{ width: '1px', height: '24px', background: 'var(--border-subtle)' }}></div>
       <div style={{ textAlign: 'right' }}>
         <p style={{ margin: 0, fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Host IP</p>
-        <code style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>{online ? `ws://${localIP}:47777` : localIP}</code>
+        <code style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>{localIP}</code>
       </div>
       <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Wifi size={18} color="var(--text-muted)" style={{ margin: '0 auto' }} />

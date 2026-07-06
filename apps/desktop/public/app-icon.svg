@@ -1,18 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 108 108">
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 108 108">
   <defs>
-    <linearGradient id="bg" x1="8" y1="6" x2="100" y2="102" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#6f7682"/>
-      <stop offset="0.48" stop-color="#4f5661"/>
-      <stop offset="1" stop-color="#2f3540"/>
+    <linearGradient id="bg" x1="10" y1="6" x2="98" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3b414b"/>
+      <stop offset="0.48" stop-color="#232831"/>
+      <stop offset="1" stop-color="#0f1318"/>
     </linearGradient>
-    <radialGradient id="glow" cx="26" cy="18" r="78" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/>
-      <stop offset="0.58" stop-color="#ffffff" stop-opacity="0.08"/>
+    <radialGradient id="glow" cx="25" cy="13" r="82" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.2"/>
+      <stop offset="0.48" stop-color="#ffffff" stop-opacity="0.075"/>
       <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
     </radialGradient>
+    <filter id="shadow" x="-15%" y="-12%" width="130%" height="132%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="3.2" stdDeviation="3.8" flood-color="#000000" flood-opacity="0.32"/>
+    </filter>
   </defs>
-  <rect x="4" y="4" width="100" height="100" rx="26" fill="url(#bg)"/>
-  <rect x="4" y="4" width="100" height="100" rx="26" fill="url(#glow)"/>
-  <path d="M45 34 L26 54 L45 74" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M63 34 L82 54 L63 74" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <g filter="url(#shadow)">
+    <rect x="6" y="5" width="96" height="98" rx="24" fill="url(#bg)"/>
+    <rect x="6" y="5" width="96" height="98" rx="24" fill="url(#glow)"/>
+    <rect x="6.5" y="5.5" width="95" height="97" rx="23.5" fill="none" stroke="#ffffff" stroke-opacity="0.14"/>
+  </g>
+  <g fill="none" stroke="#ffffff" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M43 34 L25 54 L43 74"/>
+    <path d="M65 34 L83 54 L65 74"/>
+  </g>
 </svg>

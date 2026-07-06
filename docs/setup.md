@@ -1,14 +1,14 @@
-# Setup Guide & Protocol Documentation
+# Setup Guide
 
 ## Connection Overview
 
-RemoteLink focuses on a "Local Nearby Mode" first, ensuring a fast and secure connection within the same network.
-Phase 1 uses local WebSocket pairing only. There is no internet relay, no hidden access, and no real mouse/keyboard execution.
+RemoteLink focuses on a "Local Nearby Mode" first, keeping control and streaming on the local network.
+There is no internet relay or cloud access. After approval, the mobile app can send real mouse and keyboard input to the paired PC.
 
 ### 1. How to find PC Local IP
 Users can find their local IP address via:
 - **Windows**: `ipconfig` in Command Prompt.
-- **RemoteLink UI**: Turn the desktop Remote Engine ON. The desktop app displays the detected local IP and listens on port `47777`.
+- **RemoteLink UI**: Turn the desktop Remote Engine ON. The desktop app displays the Recommended Host IP.
 
 ### 2. How Pairing Code works
 - The Desktop main process generates a random 6-digit pairing code.
@@ -16,7 +16,7 @@ Users can find their local IP address via:
 
 ### 3. How Mobile connects to PC
 - The user manually enters the PC's local IP and pairing code.
-- The mobile app connects to `ws://HOST_IP:47777` and sends a `pairing_request`.
+- The mobile app requests a local pairing session and waits for approval on the desktop.
 - Scanning remains clearly separated from real pairing and does not fabricate desktops.
 - For a real Android phone, use the desktop app's **Recommended Host IP** from the same Wi-Fi network as the phone.
 - Avoid VirtualBox, VMware, WSL, Docker, vEthernet, Bluetooth, and other virtual adapter IPs for real phone pairing.
@@ -37,30 +37,18 @@ Users can find their local IP address via:
 - Long-pressing a modifier keeps it active until the next primary key is pressed.
 
 ## Roadmap
-- **Phase 1**: Local Nearby Mode (Current Focus).
-- **Phase 2**: Worldwide Remote Mode (Future Plan - requires relay server/STUN/TURN).
+- **Phase 5**: Mobile-to-PC input control.
+- **Phase 6A**: PC-to-mobile live preview.
+- **Phase 6B**: Mobile-screen-to-PC view-only sharing.
+- **Future**: Worldwide Remote Mode would require relay server/STUN/TURN and is not implemented.
 
-## Protocol Specification
-Messages are exchanged as JSON objects over WebSockets.
-
-### Example Message:
-```json
-{
-  "type": "command_log",
-  "payload": {
-    "command": "left_click",
-    "details": {}
-  }
-}
-```
-
-Phase 1 command messages are logged by the desktop only. They do not execute OS input.
+Input commands require an approved session and can execute OS input on Windows hosts. Use Release All Keys if Ctrl, Shift, Alt, or Win becomes stuck. Disconnecting the session stops input and streaming. Mobile screen sharing is view-only and requires explicit Android MediaProjection consent.
 
 ## Play Store Release Prep
 
 For Play Store release, create a private upload keystore outside the repo and build an AAB with `flutter build appbundle --release`. Do not commit signing keys, passwords, or Play Console secrets.
 Before Play Store release, create a public privacy policy URL and support page. Do not place private email addresses directly inside the app UI.
-Android cleartext traffic is intentionally enabled for local `ws://HOST_IP:47777` LAN pairing.
+Android local network access is used only for trusted Wi-Fi or hotspot pairing.
 
 ## Microsoft Store Prep
 

@@ -1,10 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'theme/app_theme.dart';
 import 'models/app_state.dart';
 import 'screens/brand_preview_screen.dart';
 import 'screens/connect_screen.dart';
-import 'screens/dev_preview_screen.dart';
 import 'screens/remote_control_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/manual_screen.dart';
@@ -21,7 +22,8 @@ class RemoteLinkApp extends StatefulWidget {
   State<RemoteLinkApp> createState() => _RemoteLinkAppState();
 }
 
-class _RemoteLinkAppState extends State<RemoteLinkApp> {
+class _RemoteLinkAppState extends State<RemoteLinkApp>
+    with WidgetsBindingObserver {
   late final AppState _state;
   late final bool _ownsState;
   int _currentIndex = 0;
@@ -31,15 +33,24 @@ class _RemoteLinkAppState extends State<RemoteLinkApp> {
     super.initState();
     _state = widget.state ?? AppState();
     _ownsState = widget.state == null || widget.ownsState;
+    WidgetsBinding.instance.addObserver(this);
     _lockAppPortrait();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (_ownsState) {
       _state.dispose();
     }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.detached) {
+      unawaited(_state.stopMobileScreenShare(sendMessage: false));
+    }
   }
 
   void _onTabTapped(int index) {
@@ -63,8 +74,6 @@ class _RemoteLinkAppState extends State<RemoteLinkApp> {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.themeFor(mode),
         routes: {
-          if (kDebugMode)
-            '/dev-preview': (_) => DevPreviewScreen(state: _state),
           if (kDebugMode) '/brand-preview': (_) => const BrandPreviewScreen(),
           if (kDebugMode)
             '/connect-preview': (_) => ConnectScreen(

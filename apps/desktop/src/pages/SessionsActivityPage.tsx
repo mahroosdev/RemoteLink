@@ -1,11 +1,32 @@
 import React from 'react';
 import { History, Filter, Trash2, Download, Info } from 'lucide-react';
 import { Card, StatusPill, Button } from '../components/Common';
+import { sanitizePublicLogText } from '../utils/publicLog';
 
 const SessionsActivityPage = ({ state, onAction }: any) => {
   const [filter, setFilter] = React.useState('All');
+  const [copyStatus, setCopyStatus] = React.useState<string | null>(null);
   
   const filteredLogs = filter === 'All' ? state.logs : state.logs.filter((l: any) => l.type === filter);
+  const copyLogs = async () => {
+    const exportPayload = {
+      exportedAt: new Date().toISOString(),
+      filter,
+      logs: filteredLogs.map((log: any) => ({
+        event: sanitizePublicLogText(log.event),
+        type: log.type,
+        timestamp: log.timestamp,
+        device: sanitizePublicLogText(log.device || 'SYSTEM'),
+        status: log.status,
+      })),
+    };
+    try {
+      const result = await window.remotelink.copyText(JSON.stringify(exportPayload, null, 2));
+      setCopyStatus(result?.ok === false ? 'Log copy failed.' : 'Logs copied to clipboard.');
+    } catch {
+      setCopyStatus('Log copy failed.');
+    }
+  };
 
   return (
     <div className="grid">
@@ -17,10 +38,15 @@ const SessionsActivityPage = ({ state, onAction }: any) => {
             ))}
          </div>
          <div style={{ display: 'flex', gap: '12px' }}>
-            <Button variant="secondary" onClick={() => onAction('EXPORT_LOG')}><Download size={14} /> Export Logs</Button>
+            <Button variant="secondary" onClick={copyLogs}><Download size={14} /> Copy Logs</Button>
             <Button variant="secondary" onClick={() => onAction('CLEAR_LOG')}><Trash2 size={14} /> Reset History</Button>
          </div>
       </div>
+      {copyStatus && (
+        <div className="col-12" style={{ marginTop: '-4px', marginBottom: '8px' }}>
+          <p className="text-muted" style={{ margin: 0, fontSize: '12px' }}>{copyStatus}</p>
+        </div>
+      )}
 
       <Card className="col-12" icon={History}>
          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -36,10 +62,10 @@ const SessionsActivityPage = ({ state, onAction }: any) => {
             <tbody>
                {filteredLogs.map((l: any) => (
                  <tr key={l.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
-                    <td style={{ padding: '18px 16px', fontWeight: 500, fontSize: '14px' }}>{l.event}</td>
+                    <td style={{ padding: '18px 16px', fontWeight: 500, fontSize: '14px' }}>{sanitizePublicLogText(l.event)}</td>
                     <td style={{ padding: '18px 16px' }}><StatusPill label={l.type} type="info" /></td>
                     <td style={{ padding: '18px 16px', color: 'var(--text-secondary)', fontSize: '13.5px' }}>{l.timestamp}</td>
-                    <td style={{ padding: '18px 16px', color: 'var(--text-muted)', fontSize: '13.5px' }}>{l.device || 'SYSTEM'}</td>
+                    <td style={{ padding: '18px 16px', color: 'var(--text-muted)', fontSize: '13.5px' }}>{sanitizePublicLogText(l.device || 'SYSTEM')}</td>
                     <td style={{ padding: '18px 16px' }}><StatusPill label={l.status} type={l.status.toLowerCase() as any} /></td>
                  </tr>
                ))}

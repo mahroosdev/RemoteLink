@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import GlobalPairingRequest from './components/GlobalPairingRequest';
@@ -7,18 +7,18 @@ import GlobalPairingRequest from './components/GlobalPairingRequest';
 import OverviewPage from './pages/OverviewPage';
 import PairingDevicesPage from './pages/PairingDevicesPage';
 import MonitorsPage from './pages/MonitorsPage';
-import MobileControlPage from './pages/MobileControlPage';
+import MobileControlPage from './pages/MobileControlPageLive';
 import SessionsActivityPage from './pages/SessionsActivityPage';
 import SettingsGuidePage from './pages/SettingsGuidePage';
 import ManualPage from './pages/ManualPage';
 
 // Data & State
-import { DeviceInfo, LogItem, MonitorInfo, AppSettings, defaultSettings, EngineState } from './state/appState';
-import { mockConnectedDevice, initialLogs } from './data/mockData';
+import { DeviceInfo, LogItem, AppSettings, defaultSettings, EngineState, FirewallStatus, MobileScreenFrame } from './state/appState';
 
 const fallbackEngineState: EngineState = {
   engineActive: false,
   serverStatus: 'offline',
+  discoveryStatus: 'offline',
   hostIp: 'Local IP unavailable',
   hostIpCandidates: [],
   hostIpFallbacks: [],
@@ -28,8 +28,70 @@ const fallbackEngineState: EngineState = {
   connectedDevice: null,
   detectedMonitors: [],
   selectedMonitorId: null,
-  activityLog: initialLogs,
+  lastInputAt: null,
+  inputStatus: 'idle',
+  heldModifiers: [],
+  previewStream: {
+    status: 'stopped',
+    monitorId: null,
+    fps: 0,
+    lastFrameAt: null,
+  },
+  mobileScreenShare: {
+    status: 'off',
+    width: 0,
+    height: 0,
+    format: 'unknown',
+    data: null,
+    lastFrameAt: null,
+  },
+  activityLog: [],
 };
+
+const fallbackFirewallStatus: FirewallStatus = {
+  platform: 'unknown',
+  supported: false,
+  appPath: '',
+  appName: '',
+  packaged: false,
+  tcpRuleName: 'RemoteLink Local TCP 47777',
+  udpRuleName: 'RemoteLink Local UDP Discovery 47778',
+  hasScopedTcpAllow: false,
+  hasScopedUdpAllow: false,
+  hasEnabledBlockRules: false,
+  blockRules: [],
+  checkedAt: '',
+};
+
+function normalizeEngineState(state: Partial<EngineState> | null | undefined): EngineState {
+  return {
+    ...fallbackEngineState,
+    ...state,
+    discoveryStatus: state?.discoveryStatus ?? fallbackEngineState.discoveryStatus,
+    hostIpCandidates: state?.hostIpCandidates ?? fallbackEngineState.hostIpCandidates,
+    hostIpFallbacks: state?.hostIpFallbacks ?? fallbackEngineState.hostIpFallbacks,
+    pendingRequest: state?.pendingRequest ?? null,
+    connectedDevice: state?.connectedDevice ?? null,
+    detectedMonitors: state?.detectedMonitors ?? [],
+    selectedMonitorId: state?.selectedMonitorId ?? null,
+    lastInputAt: state?.lastInputAt ?? null,
+    inputStatus: state?.inputStatus ?? fallbackEngineState.inputStatus,
+    heldModifiers: state?.heldModifiers ?? [],
+    previewStream: {
+      ...fallbackEngineState.previewStream,
+      ...(state?.previewStream ?? {}),
+      monitorId: state?.previewStream?.monitorId ?? null,
+      lastFrameAt: state?.previewStream?.lastFrameAt ?? null,
+    },
+    mobileScreenShare: {
+      ...fallbackEngineState.mobileScreenShare,
+      ...(state?.mobileScreenShare ?? {}),
+      data: state?.mobileScreenShare?.data ?? null,
+      lastFrameAt: state?.mobileScreenShare?.lastFrameAt ?? null,
+    },
+    activityLog: state?.activityLog ?? [],
+  };
+}
 
 function App() {
   // Navigation State
@@ -38,11 +100,17 @@ function App() {
 
   // App State
   const [engineState, setEngineState] = useState<EngineState>(fallbackEngineState);
+  const [firewallStatus, setFirewallStatus] = useState<FirewallStatus>(fallbackFirewallStatus);
+  const [firewallActionStatus, setFirewallActionStatus] = useState<string | null>(null);
   const [selectedHostIp, setSelectedHostIp] = useState<string | null>(null);
   const [pairingExpiry] = useState(60);
   const [trustedDevices, setTrustedDevices] = useState<DeviceInfo[]>([]);
   const [previewActive, setPreviewActive] = useState(false);
   const [mobileRotation, setMobileRotation] = useState(0); // 0 = portrait, 90 = landscape
+  // Latest phone screen frame arrives on a dedicated IPC channel, kept out of
+  // engineState so frames don't force app-wide re-renders.
+  const [mobileFrame, setMobileFrame] = useState<MobileScreenFrame | null>(null);
+  const activeTabRef = useRef(activeTab);
 
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('remotelink_settings');
@@ -58,9 +126,6 @@ function App() {
       root.setAttribute('data-theme', 'pure-black');
     } else if (theme === 'Light') {
       root.setAttribute('data-theme', 'light');
-    } else if (theme === 'System Default') {
-      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      root.setAttribute('data-theme', isDark ? 'dark' : 'light');
     } else {
       root.removeAttribute('data-theme'); // Default "Professional Dark"
     }
@@ -71,18 +136,76 @@ function App() {
   useEffect(() => {
     let mounted = true;
     window.remotelink.getEngineState().then((state) => {
-      if (mounted) setEngineState(state);
+      if (mounted) setEngineState(normalizeEngineState(state));
+    });
+    window.remotelink.getFirewallStatus().then((status) => {
+      if (mounted) setFirewallStatus(status);
+    }).catch((error) => {
+      if (mounted) {
+        setFirewallStatus({
+          ...fallbackFirewallStatus,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     });
     const unsubscribe = window.remotelink.onEngineStateChanged((state) => {
-      setEngineState(state);
+      setEngineState(normalizeEngineState(state));
+    });
+    // Only retain frames while the Control page is visible so background tabs
+    // never re-render on the ~10fps frame stream.
+    const unsubscribeFrame = window.remotelink.onMobileScreenFrame((frame) => {
+      if (!mounted || activeTabRef.current !== 'Control') return;
+      setMobileFrame(frame);
     });
     return () => {
       mounted = false;
       unsubscribe();
+      unsubscribeFrame();
     };
   }, []);
 
-  const connectedDevice = engineState.connectedDevice ?? mockConnectedDevice;
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+    if (activeTab !== 'Control') setMobileFrame(null);
+  }, [activeTab]);
+
+  // Debounce firewall re-checks: a burst of engine status transitions
+  // (offline -> starting -> listening) collapses into a single cached scan.
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      window.remotelink.getFirewallStatus().then((status) => {
+        if (!cancelled) setFirewallStatus(status);
+      }).catch(() => undefined);
+    }, 1500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [engineState.serverStatus, engineState.discoveryStatus]);
+
+  const mobileShareStatus = engineState.mobileScreenShare.status;
+  const mobileShareActive = mobileShareStatus === 'sharing' || mobileShareStatus === 'starting' || mobileShareStatus === 'stopping';
+
+  // Drop a stale frame once the share is no longer active.
+  useEffect(() => {
+    if (!mobileShareActive) setMobileFrame(null);
+  }, [mobileShareActive]);
+
+  // Metadata comes from engineState; the live image/dimensions/timestamp come
+  // from the dedicated frame channel and are merged back in for the viewer.
+  const mobileScreenShareForPage = mobileShareActive && mobileFrame
+    ? {
+        ...engineState.mobileScreenShare,
+        data: mobileFrame.data,
+        format: mobileFrame.format,
+        width: mobileFrame.width,
+        height: mobileFrame.height,
+        lastFrameAt: mobileFrame.timestamp,
+      }
+    : { ...engineState.mobileScreenShare, data: null };
+
+  const connectedDevice = engineState.connectedDevice;
   const selectableHostIps = engineState.hostIpCandidates;
   const displayHostIp = selectedHostIp && selectableHostIps.includes(selectedHostIp)
     ? selectedHostIp
@@ -100,7 +223,7 @@ function App() {
       event,
       type,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      device: connectedDevice.status === 'Connected' ? connectedDevice.name : undefined,
+      device: connectedDevice?.status === 'Connected' ? connectedDevice.name : undefined,
       status
     };
     setEngineState(prev => ({ ...prev, activityLog: [newLog, ...prev.activityLog] }));
@@ -108,7 +231,15 @@ function App() {
 
   const applyEngineAction = async (action: Promise<EngineState>) => {
     const nextState = await action;
-    setEngineState(nextState);
+    setEngineState(normalizeEngineState(nextState));
+    return nextState;
+  };
+
+  const refreshFirewallStatus = async () => {
+    // Manual refresh bypasses the cache for an up-to-date reading.
+    const status = await window.remotelink.getFirewallStatus(true);
+    setFirewallStatus(status);
+    return status;
   };
 
   const onAction = (type: string, payload?: any) => {
@@ -128,7 +259,7 @@ function App() {
         if (!engineActive) return;
         const newPrev = !previewActive;
         setPreviewActive(newPrev);
-        addLog(`Monitor Broadcast: ${newPrev ? 'Active' : 'Standby'}`, 'Monitor');
+        addLog(`Local desktop preview: ${newPrev ? 'Active' : 'Stopped'}`, 'Monitor');
         break;
       case 'REGEN_CODE':
         applyEngineAction(window.remotelink.regeneratePairingCode());
@@ -153,12 +284,16 @@ function App() {
         setPreviewActive(false);
         applyEngineAction(window.remotelink.disconnectDevice());
         break;
+      case 'RELEASE_ALL_KEYS':
+        return applyEngineAction(window.remotelink.releaseAllKeys());
+      case 'STOP_PHONE_SCREEN':
+        return applyEngineAction(window.remotelink.stopPhoneScreenShare());
       case 'SWITCH_MONITOR':
         setEngineState(prev => ({
           ...prev,
           detectedMonitors: prev.detectedMonitors.map(m => ({ ...m, isActive: m.id === payload })),
         }));
-        addLog(`Stream target: ${payload === 1 ? 'Display 1' : 'Display 2'}`, 'Monitor', 'Success');
+        addLog(`Local preview source selected: ${payload}`, 'Monitor', 'Success');
         break;
       case 'MOBILE_CMD':
         addLog(`Input: ${payload}`, 'Mobile');
@@ -167,6 +302,29 @@ function App() {
         setSelectedHostIp(payload);
         addLog(`Host IP selected: ${payload}`, 'System');
         break;
+      case 'REFRESH_FIREWALL':
+        setFirewallActionStatus('Checking Windows Firewall...');
+        return refreshFirewallStatus()
+          .then(() => setFirewallActionStatus('Firewall status refreshed.'))
+          .catch(() => setFirewallActionStatus('Firewall diagnostic check failed.'));
+      case 'FIX_FIREWALL':
+        setFirewallActionStatus('Windows will ask permission to add scoped local rules.');
+        return window.remotelink.repairLocalFirewall()
+          .then((result) => {
+            setFirewallStatus(result.status);
+            setFirewallActionStatus(result.ok
+              ? 'Scoped local firewall rules are installed.'
+              : 'Firewall access update failed. RemoteLink could not update local firewall access. Try again or check Windows Security.');
+            addLog(
+              result.ok ? 'Scoped local firewall rules installed' : 'Firewall access update failed',
+              'System',
+              result.ok ? 'Success' : 'Warning',
+            );
+          })
+          .catch(() => {
+            setFirewallActionStatus('Firewall access update failed. RemoteLink could not update local firewall access. Try again or check Windows Security.');
+            addLog('Firewall repair failed', 'System', 'Warning');
+          });
       case 'ROTATE_MOBILE':
         setMobileRotation(prev => (prev === 0 ? 90 : 0));
         addLog(`Device Orientation: ${mobileRotation === 0 ? 'Landscape' : 'Portrait'}`, 'Mobile');
@@ -209,11 +367,17 @@ function App() {
         localIP, pairingCode, pairingExpiry, connectedDevice, trustedDevices, 
         logs, monitors, settings, engineActive, previewActive, mobileRotation,
         serverStatus: engineState.serverStatus, port: engineState.port,
+        discoveryStatus: engineState.discoveryStatus,
+        discoveryError: engineState.discoveryError,
         hostIpCandidates: engineState.hostIpCandidates,
         hostIpFallbacks: engineState.hostIpFallbacks,
         selectedHostIp: localIP,
         pendingRequest: engineState.pendingRequest, engineError: engineState.error,
         selectedMonitorId: engineState.selectedMonitorId,
+        previewStream: engineState.previewStream,
+        mobileScreenShare: mobileScreenShareForPage,
+        firewallStatus,
+        firewallActionStatus,
       }, 
       onAction, settingsTab, setSettingsTab, updateSettings 
     };
@@ -263,3 +427,5 @@ function App() {
 }
 
 export default App;
+
+

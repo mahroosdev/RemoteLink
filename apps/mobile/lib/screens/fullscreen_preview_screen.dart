@@ -78,11 +78,26 @@ class _FullscreenPreviewScreenState extends State<FullscreenPreviewScreen> {
           Positioned.fill(
             child: ListenableBuilder(
               listenable: state,
-              builder: (context, _) => ScreenPreview(
-                isConnected: state.isConnected,
-                activeMonitor: state.activeMonitor,
-                layoutMode: _isLandscape ? 'landscape' : 'portrait',
-                fill: true,
+              builder: (context, _) => ValueListenableBuilder<String>(
+                valueListenable: state.pointerSize,
+                builder: (context, pointerSize, _) =>
+                    ValueListenableBuilder<String>(
+                  valueListenable: state.pointerStyle,
+                  builder: (context, pointerStyle, _) => ScreenPreview(
+                    isConnected: state.isConnected,
+                    activeMonitor: state.activeMonitor,
+                    streamStatus: state.previewStreamStatus,
+                    frameBytes: state.latestPreviewFrame,
+                    streamError: state.previewStreamError,
+                    cursorPosition: state.latestPreviewCursor,
+                    frameWidth: state.latestPreviewFrameWidth,
+                    frameHeight: state.latestPreviewFrameHeight,
+                    layoutMode: _isLandscape ? 'landscape' : 'portrait',
+                    fill: true,
+                    pointerSize: pointerSize,
+                    pointerStyle: pointerStyle,
+                  ),
+                ),
               ),
             ),
           ),

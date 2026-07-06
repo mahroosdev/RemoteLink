@@ -10,6 +10,8 @@ import 'package:remotelink_mobile/models/app_state.dart';
 import 'package:remotelink_mobile/screens/fullscreen_preview_screen.dart';
 import 'package:remotelink_mobile/screens/remote_control_screen.dart';
 import 'package:remotelink_mobile/screens/settings_screen.dart';
+import 'package:remotelink_mobile/services/discovery.dart';
+import 'package:remotelink_mobile/services/mobile_screen_share_service.dart';
 import 'package:remotelink_mobile/services/pairing_service.dart';
 import 'package:remotelink_mobile/services/protocol.dart';
 import 'package:remotelink_mobile/theme/app_theme.dart';
@@ -20,6 +22,8 @@ class FakePairingService extends PairingService {
   final _events = StreamController<PairingEvent>.broadcast();
   final List<String> commands = [];
   final List<String> selectedMonitorIds = [];
+  final List<String?> streamStarts = [];
+  int streamStops = 0;
   final List<String> hostIps = [];
   final List<String> pairingCodes = [];
   final Set<String> failingHostIps;
@@ -59,9 +63,8 @@ class FakePairingService extends PairingService {
         monitors: monitors,
         selectedMonitorId: 'screen-1',
       ));
-      _events.add(
-          const PairingEvent(MessageTypes.monitorList,
-              monitors: monitors, selectedMonitorId: 'screen-1'));
+      _events.add(const PairingEvent(MessageTypes.monitorList,
+          monitors: monitors, selectedMonitorId: 'screen-1'));
     });
   }
 
@@ -78,8 +81,116 @@ class FakePairingService extends PairingService {
   }
 
   @override
+  bool startStream(String? monitorId) {
+    streamStarts.add(monitorId);
+    scheduleMicrotask(() {
+      _events.add(PairingEvent(
+        MessageTypes.streamStatus,
+        streamStatus: 'starting',
+        selectedMonitorId: monitorId,
+      ));
+      _events.add(PairingEvent(
+        MessageTypes.screenFrame,
+        selectedMonitorId: monitorId,
+        frame: StreamFrame(
+          monitorId: monitorId ?? 'screen-1',
+          format: 'jpeg',
+          width: 1,
+          height: 1,
+          bytes: Uint8List.fromList(const [
+            0x89,
+            0x50,
+            0x4E,
+            0x47,
+            0x0D,
+            0x0A,
+            0x1A,
+            0x0A,
+            0x00,
+            0x00,
+            0x00,
+            0x0D,
+            0x49,
+            0x48,
+            0x44,
+            0x52,
+            0x00,
+            0x00,
+            0x00,
+            0x01,
+            0x00,
+            0x00,
+            0x00,
+            0x01,
+            0x08,
+            0x06,
+            0x00,
+            0x00,
+            0x00,
+            0x1F,
+            0x15,
+            0xC4,
+            0x89,
+            0x00,
+            0x00,
+            0x00,
+            0x0A,
+            0x49,
+            0x44,
+            0x41,
+            0x54,
+            0x78,
+            0x9C,
+            0x63,
+            0x00,
+            0x01,
+            0x00,
+            0x00,
+            0x05,
+            0x00,
+            0x01,
+            0x0D,
+            0x0A,
+            0x2D,
+            0xB4,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x49,
+            0x45,
+            0x4E,
+            0x44,
+            0xAE,
+            0x42,
+            0x60,
+            0x82,
+          ]),
+        ),
+      ));
+    });
+    return true;
+  }
+
+  @override
+  bool stopStream() {
+    streamStops += 1;
+    scheduleMicrotask(() {
+      _events.add(const PairingEvent(
+        MessageTypes.streamStatus,
+        streamStatus: 'stopped',
+      ));
+    });
+    return true;
+  }
+
+  @override
   Future<void> disconnect({bool sendMessage = true}) async {
     disconnectCalls += 1;
+  }
+
+  void emit(PairingEvent event) {
+    _events.add(event);
   }
 
   @override
@@ -103,7 +214,13 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     final service = pairingService ?? FakePairingService();
-    final state = AppState(pairingService: service);
+    final state = AppState(
+      pairingService: service,
+      discoveryScanner: () async {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        return const [];
+      },
+    );
     addTearDown(state.dispose);
     await tester.pumpWidget(RemoteLinkApp(state: state));
     return AppHarness(state: state, service: service);
@@ -179,11 +296,42 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 1100));
     await tester.pumpAndSettle();
-    expect(find.text('No RemoteLink desktop found'), findsOneWidget);
+    expect(find.text('No desktop found'), findsOneWidget);
+    expect(find.textContaining('Use the Recommended Host IP.'), findsOneWidget);
+    expect(find.textContaining('Some hotspots block scan.'), findsOneWidget);
     expect(find.text('NO DESKTOP FOUND'), findsOneWidget); // status pill
     // No fabricated device and no auto-filled IP.
     expect(find.textContaining('RemoteLink Desktop Demo'), findsNothing);
     expect(find.widgetWithText(TextField, '192.168.0.24'), findsNothing);
+  });
+
+  testWidgets('scan fills the discovered desktop IP without auto-connecting',
+      (tester) async {
+    tester.view.physicalSize = const Size(375, 812);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final service = FakePairingService();
+    final state = AppState(
+      pairingService: service,
+      discoveryScanner: () async => const [
+        DiscoveryResult(
+          name: 'RemoteLink Desktop',
+          hostIp: '192.168.1.44',
+          port: 47777,
+        ),
+      ],
+    );
+    addTearDown(state.dispose);
+    await tester.pumpWidget(RemoteLinkApp(state: state));
+
+    await tester.tap(find.text('Scan for local devices'));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('DESKTOP FOUND'), findsOneWidget);
+    expect(find.widgetWithText(TextField, '192.168.1.44'), findsOneWidget);
+    expect(state.hostIp, '192.168.1.44');
+    expect(service.connectCalls, 0);
   });
 
   testWidgets('connect validates IP and pairing code', (tester) async {
@@ -219,10 +367,16 @@ void main() {
 
     expect(harness.state.status, ConnectionStatus.failed);
     expect(harness.state.isConnected, isFalse);
-    expect(
-        find.textContaining(
-            'Cannot reach desktop engine at ws://192.168.56.1:47777'),
-        findsOneWidget);
+    expect(find.text('Cannot reach the PC.'), findsWidgets);
+    expect(find.text('Advanced details'), findsOneWidget);
+    final publicDiagnostics = [
+      harness.state.lastConnectionError,
+      harness.state.lastAction.value,
+      ...harness.state.activityLog.map((log) => log.event),
+    ].whereType<String>().join('\n');
+    expect(publicDiagnostics, isNot(contains('ws://')));
+    expect(publicDiagnostics, isNot(contains('WebSocket')));
+    expect(publicDiagnostics, isNot(contains('SocketException')));
     await clearSnackbars(tester);
 
     await tester.enterText(
@@ -248,30 +402,60 @@ void main() {
     await tester.tap(find.byIcon(Icons.settings_remote));
     await tester.pumpAndSettle();
     expect(find.text('Connect to PC to load screens'), findsOneWidget);
+    expect(find.text('Computer'), findsWidgets);
+    expect(find.text('Phone'), findsOneWidget);
     expect(find.text('Screen 1'), findsNothing);
     expect(find.text('STREAM OFFLINE'), findsOneWidget);
+    await tester.tap(find.text('Phone'));
+    await tester.pumpAndSettle();
+    expect(find.text('Share phone screen to PC'), findsOneWidget);
+    expect(find.text('Connect to PC first'), findsOneWidget);
+    await tester.tap(find.text('Computer').first);
+    await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.wifi));
     await tester.pumpAndSettle();
 
     await connect(tester);
 
     expect(find.text('Connected'), findsOneWidget);
-    expect(find.textContaining('WAITING FOR STREAM'), findsOneWidget);
-    expect(find.text('12MS'), findsOneWidget);
-    // Mock detection reports 2 monitors → exactly Screen 1 and Screen 2.
-    expect(
-        find.text('Connect to PC to load screens'), findsNothing);
-    expect(find.text('Screen 1'), findsOneWidget);
-    expect(find.text('Screen 2'), findsOneWidget);
+    await tester.tap(find.text('Phone'));
+    await tester.pumpAndSettle();
+    expect(find.text('Share phone screen to PC'), findsOneWidget);
+    expect(find.text('Start Sharing'), findsOneWidget);
+    await tester.tap(find.text('Computer').first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('START PREVIEW'), findsOneWidget);
+    expect(find.text('LOCAL'), findsOneWidget);
+    // Mock detection reports 2 monitors, shown as compact numbered buttons.
+    expect(find.text('Connect to PC to load screens'), findsNothing);
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
     expect(find.text('Screen 3'), findsNothing);
+    expect(tester.getCenter(find.text('Start Preview')).dx,
+        greaterThan(tester.getCenter(find.text('2')).dx));
 
     // Switching monitors updates the preview label.
-    await tester.tap(find.text('Screen 2'));
+    await tester.tap(find.text('2'));
     await tester.pump();
     expect(find.textContaining('SCREEN 2'), findsOneWidget);
     expect(find.byType(SnackBar), findsNothing);
     expect(harness.service.selectedMonitorIds, ['screen-2']);
     expect(harness.service.commands, isNot(contains('monitor_switch')));
+
+    await tester.tap(find.text('Start Preview'));
+    await tester.pump();
+    await tester.pump();
+    expect(harness.service.streamStarts, ['screen-2']);
+    expect(find.text('Stop Preview'), findsOneWidget);
+    expect(harness.state.latestPreviewFrame, isNotNull);
+    expect(find.textContaining('LIVE SCREEN 2'), findsAtLeastNWidgets(1));
+
+    await tester.tap(find.text('Stop Preview'));
+    await tester.pump();
+    await tester.pump();
+    expect(harness.service.streamStops, 1);
+    expect(harness.state.latestPreviewFrame, isNull);
+    expect(find.text('Start Preview'), findsOneWidget);
   });
 
   testWidgets('touchpad logs pointer movement and pointer toggle works',
@@ -279,12 +463,31 @@ void main() {
     final harness = await pumpApp(tester);
     await connect(tester);
 
+    await tester.scrollUntilVisible(find.byType(TouchpadArea), 100,
+        scrollable: scrollableIn(RemoteControlScreen));
+    await tester.pumpAndSettle();
     expect(tester.widget<TouchpadArea>(find.byType(TouchpadArea)).showPointer,
         isTrue);
-    await tester.drag(find.byType(TouchpadArea), const Offset(40, 25));
+    await tester.drag(find.byType(TouchpadArea), const Offset(40, 25),
+        warnIfMissed: false);
     await tester.pumpAndSettle();
     expect(harness.service.commands, contains('touchpad_move'));
     expect(find.text('Pointer moved'), findsNothing);
+
+    harness.service.commands.clear();
+    final touchpad = find.byType(TouchpadArea);
+    final gesture = await tester.startGesture(tester.getCenter(touchpad));
+    await tester.pump(const Duration(milliseconds: 650));
+    await gesture.moveBy(const Offset(36, 18));
+    await tester.pump(const Duration(milliseconds: 32));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(
+      harness.service.commands,
+      containsAllInOrder(
+          ['left_button_down', 'touchpad_move', 'left_button_up']),
+    );
+    expect(harness.service.commands, isNot(contains('left_click')));
 
     // Settings > Controls: Show Touchpad Pointer toggles and persists.
     await tester.tap(find.byIcon(Icons.settings));
@@ -295,6 +498,9 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.settings_remote));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.byType(TouchpadArea), 100,
+        scrollable: scrollableIn(RemoteControlScreen));
     await tester.pumpAndSettle();
     expect(tester.widget<TouchpadArea>(find.byType(TouchpadArea)).showPointer,
         isFalse);
@@ -311,8 +517,9 @@ void main() {
     expect(find.text('LANDSCAPE PREVIEW'), findsNothing);
     expect(find.text('Force Landscape'), findsNothing);
     expect(find.text('Force Portrait'), findsNothing);
-    expect(find.text('Fullscreen Preview'), findsOneWidget);
-    expect(find.byIcon(Icons.screen_rotation), findsOneWidget);
+    expect(find.byTooltip('Fullscreen Preview'), findsOneWidget);
+    expect(find.byIcon(Icons.open_in_full_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.screen_rotation), findsNothing);
     expect(find.text('Mouse'), findsOneWidget);
     expect(find.text('Keyboard'), findsOneWidget);
     expect(find.text('Shortcuts'), findsOneWidget);
@@ -366,8 +573,8 @@ void main() {
     await tester.pumpAndSettle();
     platformCalls.clear();
 
-    await tester.tap(find.text('Fullscreen Preview'));
-    await tester.pumpAndSettle();
+    await revealAndTap(tester, scrollableIn(RemoteControlScreen),
+        find.byTooltip('Fullscreen Preview'));
 
     expect(find.byType(FullscreenPreviewScreen), findsOneWidget);
     final inFullscreen = find.byType(FullscreenPreviewScreen);
@@ -474,11 +681,9 @@ void main() {
     // Settings uses bottom navigation
     await tester.tap(find.byIcon(Icons.settings));
     await tester.pumpAndSettle();
-    final firstSwitch = find.byType(Switch).first;
-    expect(tester.widget<Switch>(firstSwitch).value, isTrue);
-    await tester.tap(firstSwitch);
-    await tester.pumpAndSettle();
-    expect(tester.widget<Switch>(firstSwitch).value, isFalse);
+    expect(find.byType(BottomNavigationBar), findsOneWidget);
+    expect(find.text('NOT ACTIVE YET'), findsNothing);
+    expect(find.text('Developer'), findsNothing);
   });
 
   testWidgets(
@@ -540,8 +745,8 @@ void main() {
     expect(find.text('Basic Keys'), findsNothing);
     expect(find.text('Modifiers'), findsNothing);
 
-    // Actions panel: expand and use one.
-    await revealAndTap(tester, remoteScroll, find.text('Actions'));
+    // Actions panel is open by default in the Shortcuts tab.
+    expect(find.text('Alt+Tab'), findsOneWidget);
     await revealAndTap(tester, remoteScroll, find.text('Alt+Tab'));
     expect(harness.service.commands, contains('shortcut'));
     expect(find.text('Alt+Tab (Alt+Tab) sent'), findsNothing);
@@ -617,26 +822,37 @@ void main() {
 
   testWidgets('settings change and persist across tab switches',
       (tester) async {
-    await pumpApp(tester);
+    final harness = await pumpApp(tester);
 
     await tester.tap(find.byIcon(Icons.settings));
     await tester.pumpAndSettle();
     expect(find.text('Configuration'), findsOneWidget);
+    expect(find.text('NOT ACTIVE YET'), findsNothing);
+    expect(find.text('Developer'), findsNothing);
 
-    final autoReconnect = find.byType(Switch).first;
-    expect(tester.widget<Switch>(autoReconnect).value, isTrue);
-    await tester.tap(autoReconnect);
-    await tester.pumpAndSettle();
-    expect(tester.widget<Switch>(autoReconnect).value, isFalse);
-
-    // Selector bottom sheet updates the displayed value.
-    await tester.scrollUntilVisible(find.text('Stream Resolution'), 100,
+    await tester.scrollUntilVisible(find.text('Show Touchpad Pointer'), 100,
         scrollable: scrollableIn(SettingsScreen));
-    await tester.tap(find.text('Stream Resolution'));
+    await tester.tap(find.text('Show Touchpad Pointer'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('720p').last);
+    expect(harness.state.showTouchpadPointer.value, isFalse);
+
+    await tester.scrollUntilVisible(find.text('Pointer Size'), 80,
+        scrollable: scrollableIn(SettingsScreen));
     await tester.pumpAndSettle();
-    expect(find.text('720p'), findsOneWidget);
+    await tester.tap(find.text('Pointer Size'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Micro').last);
+    await tester.pumpAndSettle();
+    expect(harness.state.pointerSize.value, 'Micro');
+
+    await tester.scrollUntilVisible(find.text('Pointer Design'), 80,
+        scrollable: scrollableIn(SettingsScreen));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pointer Design'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Thin Arrow').last);
+    await tester.pumpAndSettle();
+    expect(harness.state.pointerStyle.value, 'Thin Arrow');
 
     // Slider updates displayed value (scroll back up to it first).
     await tester.scrollUntilVisible(find.text('Mouse Speed'), -100,
@@ -651,12 +867,77 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.settings));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('Auto Reconnect'), -100,
+    await tester.scrollUntilVisible(find.text('Show Touchpad Pointer'), -100,
         scrollable: scrollableIn(SettingsScreen));
-    expect(tester.widget<Switch>(find.byType(Switch).first).value, isFalse);
-    await tester.scrollUntilVisible(find.text('720p'), 100,
-        scrollable: scrollableIn(SettingsScreen));
-    expect(find.text('720p'), findsOneWidget);
+    expect(harness.state.showTouchpadPointer.value, isFalse);
+  });
+
+  testWidgets('phone sharing is blocked while PC preview is active',
+      (tester) async {
+    final harness = await pumpApp(tester);
+    await connect(tester);
+
+    harness.state.startPreviewStream();
+    await tester.pump();
+    expect(harness.state.isPreviewStreaming, isTrue);
+
+    await harness.state.startMobileScreenShare();
+    await tester.pump();
+
+    expect(harness.state.lastAction.value,
+        'Stop PC preview before starting phone sharing.');
+    expect(harness.state.mobileScreenShareStatus,
+        isNot(equals(MobileScreenShareStatus.sharing)));
+  });
+
+  testWidgets('desktop phone-share status updates mobile UI and stop resets it',
+      (tester) async {
+    const shareChannel = MethodChannel('remotelink/mobile_screen_share');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(shareChannel, (call) async {
+      if (call.method == 'stopShare') return {'ok': true};
+      return null;
+    });
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(shareChannel, null);
+    });
+
+    final harness = await pumpApp(tester);
+    await connect(tester);
+
+    await tester.tap(find.byIcon(Icons.settings_remote));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Phone'));
+    await tester.pumpAndSettle();
+
+    harness.service.emit(const PairingEvent(
+      MessageTypes.mobileScreenStatus,
+      mobileScreenStatus: 'starting',
+      mobileScreenWidth: 431,
+      mobileScreenHeight: 960,
+    ));
+    await tester.pump();
+    expect(harness.state.mobileScreenShareStatus,
+        MobileScreenShareStatus.starting);
+
+    harness.service.emit(const PairingEvent(
+      MessageTypes.mobileScreenStatus,
+      mobileScreenStatus: 'sharing',
+      mobileScreenWidth: 431,
+      mobileScreenHeight: 960,
+    ));
+    await tester.pump();
+    expect(
+        harness.state.mobileScreenShareStatus, MobileScreenShareStatus.sharing);
+
+    harness.service.emit(const PairingEvent(
+      MessageTypes.mobileScreenStop,
+      message: 'Stopped from desktop',
+    ));
+    await tester.pumpAndSettle();
+    expect(
+        harness.state.mobileScreenShareStatus, MobileScreenShareStatus.stopped);
   });
 
   testWidgets('theme selector switches the real app theme and persists',
@@ -706,6 +987,8 @@ void main() {
     final state = await AppState.create(pairingService: FakePairingService());
     state.setThemeMode(AppTheme.lightMode);
     state.setShowTouchpadPointer(false);
+    state.setPointerSize('Micro');
+    state.setPointerStyle('Thin Arrow');
     state.setStreamResolution('720p');
     state.setFrameRate('30 FPS');
     state.setTouchpadMode('Gaming Mode');
@@ -720,6 +1003,8 @@ void main() {
 
     expect(restored.themeMode.value, AppTheme.lightMode);
     expect(restored.showTouchpadPointer.value, isFalse);
+    expect(restored.pointerSize.value, 'Micro');
+    expect(restored.pointerStyle.value, 'Thin Arrow');
     expect(restored.streamResolution.value, '720p');
     expect(restored.frameRate.value, '30 FPS');
     expect(restored.touchpadMode.value, 'Gaming Mode');

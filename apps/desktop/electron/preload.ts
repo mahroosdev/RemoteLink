@@ -14,11 +14,20 @@ contextBridge.exposeInMainWorld('remotelink', {
   denyPairing: () => ipcRenderer.invoke('remotelink:deny-pairing'),
   disconnectDevice: () => ipcRenderer.invoke('remotelink:disconnect-device'),
   clearActivityLog: () => ipcRenderer.invoke('remotelink:clear-activity-log'),
+  releaseAllKeys: () => ipcRenderer.invoke('remotelink:release-all-keys'),
+  stopPhoneScreenShare: () => ipcRenderer.invoke('remotelink:stop-phone-screen-share'),
   copyText: (text: string) => ipcRenderer.invoke('remotelink:copy-text', text),
+  getFirewallStatus: (force?: boolean) => ipcRenderer.invoke('remotelink:get-firewall-status', force === true),
+  repairLocalFirewall: () => ipcRenderer.invoke('remotelink:repair-local-firewall'),
   onEngineStateChanged: (callback: (state: unknown) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, state: unknown) => callback(state)
     ipcRenderer.on('remotelink:state-changed', listener)
     return () => ipcRenderer.removeListener('remotelink:state-changed', listener)
+  },
+  onMobileScreenFrame: (callback: (frame: unknown) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, frame: unknown) => callback(frame)
+    ipcRenderer.on('remotelink:mobile-frame', listener)
+    return () => ipcRenderer.removeListener('remotelink:mobile-frame', listener)
   },
 })
 
@@ -32,3 +41,4 @@ window.addEventListener('DOMContentLoaded', () => {
     replaceText(`${type}-version`, process.versions[type as keyof NodeJS.ProcessVersions] as string)
   }
 })
+
