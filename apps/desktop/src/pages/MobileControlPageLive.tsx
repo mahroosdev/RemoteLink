@@ -371,8 +371,8 @@ const MobileControlPageLive = ({ state, onAction }: any) => {
     <div className="grid">
       <div className="col-12" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h2 style={{ fontSize: '24px', fontWeight: 600 }}>Mobile Screen Stream</h2>
-          <p className="text-muted">Live view of the paired Android phone screen.</p>
+          <h2 style={{ fontSize: '24px', fontWeight: 600 }}>Phone Screen</h2>
+          <p className="text-muted">Live view of the paired phone screen. This view does not control the phone.</p>
         </div>
         <StatusPill
           label={statusLabel.toUpperCase()}

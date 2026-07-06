@@ -52,11 +52,11 @@ const SessionsActivityPage = ({ state, onAction }: any) => {
          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
                <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
-                  <th style={{ padding: '16px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Event Signature</th>
-                  <th style={{ padding: '16px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Module</th>
-                  <th style={{ padding: '16px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Timestamp</th>
-                  <th style={{ padding: '16px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Source Device</th>
-                  <th style={{ padding: '16px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>System Status</th>
+                  <th style={{ padding: '16px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Event</th>
+                  <th style={{ padding: '16px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Type</th>
+                  <th style={{ padding: '16px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Time</th>
+                  <th style={{ padding: '16px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Device</th>
+                  <th style={{ padding: '16px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Status</th>
                </tr>
             </thead>
             <tbody>
@@ -74,7 +74,8 @@ const SessionsActivityPage = ({ state, onAction }: any) => {
          {filteredLogs.length === 0 && (
            <div style={{ padding: '80px', textAlign: 'center', color: 'var(--text-muted)' }}>
               <Info size={48} strokeWidth={1} style={{ marginBottom: '16px', opacity: 0.2 }} />
-              <p style={{ fontSize: '15px' }}>No diagnostic records found for the selected module.</p>
+              <p style={{ fontSize: '15px', marginBottom: '6px' }}>No activity to show yet{filter === 'All' ? '' : ` for ${filter}`}.</p>
+              <p style={{ fontSize: '13px' }}>Pairing, input, preview, and phone sharing events will appear here as they happen.</p>
            </div>
          )}
       </Card>

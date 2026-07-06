@@ -2,13 +2,25 @@ import React from 'react';
 import { Power, Zap, Wifi } from 'lucide-react';
 import { Button } from './Common';
 
+// Keep the top-bar section title identical to the sidebar label for each tab.
+const sectionTitles: Record<string, string> = {
+  Overview: 'Overview',
+  Pairing: 'Pairing & Devices',
+  Monitors: 'PC Monitors',
+  Control: 'Phone Screen',
+  Activity: 'Sessions & Activity',
+  Settings: 'Settings & Guide',
+  Manual: 'Manual',
+};
+
 const Header = ({ activeTab, localIP, engineActive, serverStatus, onToggleEngine }: any) => {
   const isStarting = serverStatus === 'starting';
   const online = engineActive && serverStatus === 'listening';
+  const sectionTitle = sectionTitles[activeTab] ?? activeTab;
   return (
   <header className="top-header">
     <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-      <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>{activeTab}</h2>
+      <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>{sectionTitle}</h2>
       <div style={{ width: '1px', height: '24px', background: 'var(--border-subtle)' }}></div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         <Button 

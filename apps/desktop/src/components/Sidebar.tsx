@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Smartphone, Monitor, Gamepad2, History, Settings, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Smartphone, Monitor, ScreenShare, History, Settings, BookOpen } from 'lucide-react';
 import { AppLogo } from './Common';
 
 const Sidebar = ({ activeTab, onTabChange, engineActive, connectedDevice }: { activeTab: string, onTabChange: (tab: string) => void, engineActive: boolean, connectedDevice: any }) => {
@@ -24,8 +24,8 @@ const Sidebar = ({ activeTab, onTabChange, engineActive, connectedDevice }: { ac
         <NavItem icon={LayoutDashboard} label="Overview" tab="Overview" />
         <NavItem icon={Smartphone} label="Pairing & Devices" tab="Pairing" />
         <NavItem icon={Monitor} label="PC Monitors" tab="Monitors" />
-        <NavItem icon={Gamepad2} label="Mobile Control" tab="Control" />
-        <NavItem icon={History} label="Sessions / Activity" tab="Activity" />
+        <NavItem icon={ScreenShare} label="Phone Screen" tab="Control" />
+        <NavItem icon={History} label="Sessions & Activity" tab="Activity" />
         <div style={{ margin: '32px 0', height: '1px', background: 'var(--border-subtle)' }}></div>
         <NavItem icon={Settings} label="Settings & Guide" tab="Settings" />
         <NavItem icon={BookOpen} label="Manual" tab="Manual" />
