@@ -25,40 +25,45 @@ Future<List<DiscoveryResult>> scanForRemoteLinkDesktops({
 }) async {
   final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
   final found = <String, DiscoveryResult>{};
-  final targets = await _scanTargets();
-  final request = utf8.encode(jsonEncode({
-    'type': _requestType,
-    'client': 'RemoteLink Mobile',
-  }));
+  StreamSubscription<RawSocketEvent>? subscription;
+  try {
+    final targets = await _scanTargets();
+    final request = utf8.encode(jsonEncode({
+      'type': _requestType,
+      'client': 'RemoteLink Mobile',
+    }));
 
-  socket.broadcastEnabled = true;
-  if (kDebugMode) {
-    debugPrint('[RemoteLink] Discovery scan started');
-    debugPrint(
-        '[RemoteLink] Discovery targets: ${targets.map((e) => e.address).join(', ')}');
-  }
-
-  for (final target in targets) {
-    socket.send(request, target, _discoveryPort);
-  }
-
-  final subscription = socket.listen((event) {
-    if (event != RawSocketEvent.read) return;
-    Datagram? datagram;
-    while ((datagram = socket.receive()) != null) {
-      final result = _parseResponse(datagram!);
-      if (result == null) continue;
-      found['${result.hostIp}:${result.port}'] = result;
-      if (kDebugMode) {
-        debugPrint(
-            '[RemoteLink] Discovery response received from ${result.hostIp}:${result.port}');
-      }
+    socket.broadcastEnabled = true;
+    if (kDebugMode) {
+      debugPrint('[RemoteLink] Discovery scan started');
+      debugPrint(
+          '[RemoteLink] Discovery targets: ${targets.map((e) => e.address).join(', ')}');
     }
-  });
 
-  await Future<void>.delayed(timeout);
-  await subscription.cancel();
-  socket.close();
+    for (final target in targets) {
+      socket.send(request, target, _discoveryPort);
+    }
+
+    subscription = socket.listen((event) {
+      if (event != RawSocketEvent.read) return;
+      Datagram? datagram;
+      while ((datagram = socket.receive()) != null) {
+        final result = _parseResponse(datagram!);
+        if (result == null) continue;
+        found['${result.hostIp}:${result.port}'] = result;
+        if (kDebugMode) {
+          debugPrint(
+              '[RemoteLink] Discovery response received from ${result.hostIp}:${result.port}');
+        }
+      }
+    });
+
+    await Future<void>.delayed(timeout);
+  } finally {
+    // Always release the socket, even if setup or send throws.
+    await subscription?.cancel();
+    socket.close();
+  }
 
   if (found.isEmpty && kDebugMode) {
     debugPrint('[RemoteLink] Discovery scan timed out with no desktops');

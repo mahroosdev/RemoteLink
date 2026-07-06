@@ -187,10 +187,14 @@ class MobileScreenShareService {
     _subscription = _eventChannel.receiveBroadcastStream().listen(
       _handleEvent,
       onError: (error) {
-        _emit(MobileScreenShareEvent(
+        if (kDebugMode) {
+          debugPrint('[RemoteLink] Mobile screen share event error: $error');
+        }
+        // Keep the user-facing message public-safe; the raw error is debug-only.
+        _emit(const MobileScreenShareEvent(
           type: 'status',
           status: MobileScreenShareStatus.error,
-          message: error.toString(),
+          message: 'Phone screen sharing stopped unexpectedly.',
         ));
       },
     );
@@ -232,10 +236,13 @@ class MobileScreenShareService {
             ));
           }
         } catch (error) {
-          _emit(MobileScreenShareEvent(
+          if (kDebugMode) {
+            debugPrint('[RemoteLink] Invalid mobile screen frame: $error');
+          }
+          _emit(const MobileScreenShareEvent(
             type: 'status',
             status: MobileScreenShareStatus.error,
-            message: 'Invalid mobile screen frame: $error',
+            message: 'Phone screen frame could not be read.',
           ));
         }
         break;

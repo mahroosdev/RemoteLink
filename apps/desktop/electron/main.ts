@@ -245,6 +245,12 @@ app.on('window-all-closed', () => {
   }
 })
 
+// Terminate the persistent PowerShell input worker(s) so they are never left
+// orphaned when the app exits (Node does not job-object children on Windows).
+app.on('before-quit', () => {
+  remoteLinkServer.shutdown()
+})
+
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow()
