@@ -503,7 +503,7 @@ export class RemoteLinkServer {
       clearTimeout(this.mouseMoveTimer)
       this.mouseMoveTimer = null
     }
-    this.inputExecutor.clearQueue()
+    this.inputExecutor.cancelPendingInput()
     void this.releaseHeldMouseButtons(reason, false)
     if (shouldLog) {
       this.addLog(`Input queue cleared: ${reason}`, 'Security', 'Info', false, this.connected?.device.name)
@@ -2183,6 +2183,5 @@ function sanitizeCommandLog(payload: CommandLogPayload) {
   const keys = Object.keys(payload.details).filter((key) => key !== 'data').slice(0, 6)
   return keys.length > 0 ? `${command} details=${keys.join(',')}` : command
 }
-
 
 

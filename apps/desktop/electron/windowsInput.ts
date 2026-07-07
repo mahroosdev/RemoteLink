@@ -248,15 +248,20 @@ export class WindowsInputExecutor {
     }
   }
 
+  cancelPendingInput() {
+    this.clearQueue()
+    this.stopWorkerProcess()
+    this.stopFallbackWorker()
+    this.fallbackActive = false
+  }
+
   markIdle() {
     if (!this.fallbackActive && this.workerReady) return
     this.setStatus('idle')
   }
 
   stopWorker() {
-    this.clearQueue()
-    this.stopWorkerProcess()
-    this.stopFallbackWorker()
+    this.cancelPendingInput()
     this.fallbackActive = false
     this.setStatus('idle')
   }

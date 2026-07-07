@@ -19,6 +19,7 @@ import android.os.ResultReceiver
 import android.util.Base64
 import android.util.DisplayMetrics
 import android.util.Log
+import android.view.Surface
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -337,13 +338,21 @@ class MainActivity : FlutterActivity() {
     private fun currentDisplaySize(): Pair<Int, Int>? {
         val metrics = DisplayMetrics()
         @Suppress("DEPRECATION")
-        windowManager.defaultDisplay.getRealMetrics(metrics)
+        val display = windowManager.defaultDisplay
+        @Suppress("DEPRECATION")
+        display.getRealMetrics(metrics)
         if (metrics.widthPixels <= 0 || metrics.heightPixels <= 0) {
             @Suppress("DEPRECATION")
-            windowManager.defaultDisplay.getMetrics(metrics)
+            display.getMetrics(metrics)
         }
         if (metrics.widthPixels <= 0 || metrics.heightPixels <= 0) return null
-        return Pair(metrics.widthPixels, metrics.heightPixels)
+        val longSide = max(metrics.widthPixels, metrics.heightPixels)
+        val shortSide = min(metrics.widthPixels, metrics.heightPixels)
+        @Suppress("DEPRECATION")
+        return when (display.rotation) {
+            Surface.ROTATION_90, Surface.ROTATION_270 -> Pair(longSide, shortSide)
+            else -> Pair(shortSide, longSide)
+        }
     }
 
     private fun createCaptureSurface(projection: MediaProjection, reason: String): Boolean {

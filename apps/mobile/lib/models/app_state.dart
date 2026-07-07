@@ -40,10 +40,12 @@ class LogItem {
 class AppState extends ChangeNotifier {
   AppState({
     PairingService? pairingService,
+    MobileScreenShareService? mobileScreenShareService,
     SharedPreferences? preferences,
     DesktopDiscoveryScanner? discoveryScanner,
   })  : _pairingService = pairingService ?? PairingService(),
-        _mobileScreenShareService = MobileScreenShareService(),
+        _mobileScreenShareService =
+            mobileScreenShareService ?? MobileScreenShareService(),
         _discoveryScanner =
             discoveryScanner ?? (() => scanForRemoteLinkDesktops()),
         _preferences = preferences {
@@ -69,6 +71,7 @@ class AppState extends ChangeNotifier {
 
   static Future<AppState> create({
     PairingService? pairingService,
+    MobileScreenShareService? mobileScreenShareService,
     DesktopDiscoveryScanner? discoveryScanner,
   }) async {
     // Kept for tests, but main.dart uses AppState() directly now.
@@ -80,6 +83,7 @@ class AppState extends ChangeNotifier {
     }
     return AppState(
       pairingService: pairingService,
+      mobileScreenShareService: mobileScreenShareService,
       preferences: preferences,
       discoveryScanner: discoveryScanner,
     );
@@ -111,6 +115,7 @@ class AppState extends ChangeNotifier {
   int _mobileScreenShareRequestId = 0;
   bool _mobileScreenShareStopInFlight = false;
   bool _ignoreMobileScreenShareActiveEvents = false;
+  bool _nativeMobileScreenShareActive = false;
 
   /// Monitors reported by the PC after approval.
   List<RemoteMonitor> _detectedMonitors = const [];
@@ -451,6 +456,7 @@ class AppState extends ChangeNotifier {
     }
     addLog('Start sharing tapped');
     _ignoreMobileScreenShareActiveEvents = false;
+    _nativeMobileScreenShareActive = false;
     _previewStreamRequested = false;
     _previewStreamStatus = PreviewStreamStatus.stopped;
     _previewStreamError = null;
@@ -835,7 +841,12 @@ class AppState extends ChangeNotifier {
           _latestMobileScreenFrameHeight = event.mobileScreenHeight;
         }
         if (!_ignoreMobileScreenShareActiveEvents) {
-          _setMobileScreenShareStatus(MobileScreenShareStatus.sharing);
+          final nativeShareIsLive = _nativeMobileScreenShareActive ||
+              _latestMobileScreenFrameAt != null ||
+              _mobileFrameSendCount > 0;
+          _setMobileScreenShareStatus(nativeShareIsLive
+              ? MobileScreenShareStatus.sharing
+              : MobileScreenShareStatus.starting);
           notifyListeners();
         }
         break;
@@ -877,9 +888,13 @@ class AppState extends ChangeNotifier {
                 event.mobileScreenHeight! > 0) {
               _latestMobileScreenFrameHeight = event.mobileScreenHeight;
             }
-            _setMobileScreenShareStatus(desktopStatus == 'sharing'
-                ? MobileScreenShareStatus.sharing
-                : MobileScreenShareStatus.starting);
+            final nativeShareIsLive = _nativeMobileScreenShareActive ||
+                _latestMobileScreenFrameAt != null ||
+                _mobileFrameSendCount > 0;
+            _setMobileScreenShareStatus(
+                desktopStatus == 'sharing' && nativeShareIsLive
+                    ? MobileScreenShareStatus.sharing
+                    : MobileScreenShareStatus.starting);
             notifyListeners();
           }
         } else if (desktopStatus == 'error') {
@@ -976,7 +991,7 @@ class AppState extends ChangeNotifier {
     if (eventRequestId != null &&
         eventRequestId != _mobileScreenShareRequestId) {
       addLog(
-        'Ignoring stale mobile share event for request $eventRequestId',
+        'Ignored stale event with requestId $eventRequestId',
         updateTicker: false,
       );
       return;
@@ -1011,6 +1026,8 @@ class AppState extends ChangeNotifier {
           break;
         }
         final previousStatus = _mobileScreenShareStatus;
+        _nativeMobileScreenShareActive =
+            incomingStatus == MobileScreenShareStatus.sharing;
         _setMobileScreenShareStatus(incomingStatus);
         if (event.width != null && event.width! > 0) {
           _latestMobileScreenFrameWidth = event.width;
@@ -1046,6 +1063,7 @@ class AppState extends ChangeNotifier {
         if (_mobileScreenShareStatus == MobileScreenShareStatus.stopped ||
             _mobileScreenShareStatus == MobileScreenShareStatus.off ||
             _mobileScreenShareStatus == MobileScreenShareStatus.error) {
+          _nativeMobileScreenShareActive = false;
           _latestMobileScreenFrame = null;
           _latestMobileScreenFrameWidth = null;
           _latestMobileScreenFrameHeight = null;
@@ -1083,6 +1101,7 @@ class AppState extends ChangeNotifier {
         if (frame == null) break;
         final wasSharing =
             _mobileScreenShareStatus == MobileScreenShareStatus.sharing;
+        _nativeMobileScreenShareActive = true;
         _latestMobileScreenFrame = frame.bytes;
         _latestMobileScreenFrameWidth = frame.width;
         _latestMobileScreenFrameHeight = frame.height;
@@ -1137,6 +1156,7 @@ class AppState extends ChangeNotifier {
   void _resetMobileScreenShareState({bool logReset = false}) {
     _mobileScreenShareStatus = MobileScreenShareStatus.stopped;
     _mobileScreenShareError = null;
+    _nativeMobileScreenShareActive = false;
     _latestMobileScreenFrame = null;
     _latestMobileScreenFrameWidth = null;
     _latestMobileScreenFrameHeight = null;

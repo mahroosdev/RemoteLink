@@ -3,12 +3,134 @@
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' http://127.0.0.1:* http://localhost:*;" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/remotelink-app.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>RemoteLink Pro</title>
+    <style>
+      html,
+      body,
+      #root {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        background: #0b0c0f;
+      }
+
+      .startup-intro-static {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0b0c0f;
+        color: #f5f5f5;
+        font-family: Inter, 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+
+      .startup-static-panel {
+        width: min(280px, calc(100vw - 48px));
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 18px;
+        animation: startup-static-panel-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+
+      .startup-static-logo {
+        width: 78px;
+        height: 78px;
+        border-radius: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f5f5f5;
+        color: #0b0c0f;
+        box-shadow: 0 18px 45px rgba(0, 0, 0, 0.32);
+      }
+
+      .startup-static-brand {
+        text-align: center;
+      }
+
+      .startup-static-brand h1 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 800;
+        line-height: 1.1;
+        letter-spacing: 0;
+      }
+
+      .startup-static-brand p {
+        margin: 6px 0 0;
+        color: #858b96;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 1.6px;
+        text-transform: uppercase;
+      }
+
+      .startup-static-progress {
+        width: 168px;
+        height: 4px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: #2a2d34;
+      }
+
+      .startup-static-progress-fill {
+        width: 42%;
+        height: 100%;
+        border-radius: inherit;
+        background: #3b82f6;
+        animation: startup-static-progress-slide 1.05s ease-in-out infinite;
+      }
+
+      @keyframes startup-static-panel-in {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes startup-static-progress-slide {
+        0% { transform: translateX(-115%); }
+        48% { transform: translateX(68%); }
+        100% { transform: translateX(255%); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .startup-static-panel,
+        .startup-static-progress-fill {
+          animation: none;
+        }
+
+        .startup-static-progress-fill {
+          width: 100%;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="startup-intro-static" role="status" aria-label="RemoteLink starting">
+        <div class="startup-static-panel">
+          <div class="startup-static-logo" aria-hidden="true">
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="6.5" y="8.5" width="25" height="18" rx="2.5" stroke="currentColor" stroke-width="2.4"/>
+              <path d="M16 31H22" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+              <path d="M19 27V31" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+              <rect x="25.5" y="18.5" width="12" height="17" rx="2.5" fill="#f5f5f5" stroke="currentColor" stroke-width="2.4"/>
+              <circle cx="31.5" cy="31.5" r="1.15" fill="currentColor"/>
+            </svg>
+          </div>
+          <div class="startup-static-brand">
+            <h1>REMOTELINK</h1>
+            <p>Pro Utility</p>
+          </div>
+          <div class="startup-static-progress" aria-hidden="true">
+            <div class="startup-static-progress-fill"></div>
+          </div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -144,9 +144,17 @@ function createWindow() {
       contextIsolation: true,
     },
     title: 'RemoteLink Pro',
-    backgroundColor: '#0b0c0f'
+    backgroundColor: '#0b0c0f',
+    show: false,
   })
 
+  win.once('ready-to-show', () => {
+    win?.show()
+    win?.focus()
+  })
+  win.webContents.once('did-fail-load', () => {
+    win?.show()
+  })
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   win.webContents.on('will-navigate', (event, url) => {
     const isAllowedDevUrl = isDev && url.startsWith(devRendererUrl)
@@ -538,4 +546,3 @@ async function runElevatedPowerShell(script: string) {
 function psSingleQuoted(value: string) {
   return `'${value.replace(/'/g, "''")}'`
 }
-

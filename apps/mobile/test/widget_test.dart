@@ -199,23 +199,72 @@ class FakePairingService extends PairingService {
   }
 }
 
+class FakeMobileScreenShareService extends MobileScreenShareService {
+  final _events = StreamController<MobileScreenShareEvent>.broadcast();
+  bool startAccepted = true;
+  int? lastStartRequestId;
+  int stopCalls = 0;
+
+  @override
+  Stream<MobileScreenShareEvent> get events => _events.stream;
+
+  @override
+  bool get isSupported => true;
+
+  @override
+  Future<bool> startShare({
+    required int requestId,
+    int maxWidth = 540,
+    int maxHeight = 960,
+    int fps = 6,
+    int jpegQuality = 62,
+  }) async {
+    lastStartRequestId = requestId;
+    return startAccepted;
+  }
+
+  @override
+  Future<bool> stopShare({int? requestId}) async {
+    stopCalls += 1;
+    return true;
+  }
+
+  void emit(MobileScreenShareEvent event) {
+    _events.add(event);
+  }
+
+  @override
+  Future<void> dispose() async {
+    await _events.close();
+  }
+}
+
 class AppHarness {
   final AppState state;
   final FakePairingService service;
+  final FakeMobileScreenShareService shareService;
 
-  const AppHarness({required this.state, required this.service});
+  const AppHarness({
+    required this.state,
+    required this.service,
+    required this.shareService,
+  });
 }
 
 void main() {
   // Phone-sized surface so RenderFlex overflows fail these tests.
   Future<AppHarness> pumpApp(WidgetTester tester,
-      {FakePairingService? pairingService}) async {
+      {FakePairingService? pairingService,
+      FakeMobileScreenShareService? mobileScreenShareService}) async {
     tester.view.physicalSize = const Size(375, 812);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     final service = pairingService ?? FakePairingService();
+    final shareService =
+        mobileScreenShareService ?? FakeMobileScreenShareService();
     final state = AppState(
       pairingService: service,
+      mobileScreenShareService: shareService,
       discoveryScanner: () async {
         await Future<void>.delayed(const Duration(milliseconds: 100));
         return const [];
@@ -223,7 +272,11 @@ void main() {
     );
     addTearDown(state.dispose);
     await tester.pumpWidget(RemoteLinkApp(state: state));
-    return AppHarness(state: state, service: service);
+    return AppHarness(
+      state: state,
+      service: service,
+      shareService: shareService,
+    );
   }
 
   // Lets pending snackbars expire so they stop blocking taps near the bottom.
@@ -892,17 +945,6 @@ void main() {
 
   testWidgets('desktop phone-share status updates mobile UI and stop resets it',
       (tester) async {
-    const shareChannel = MethodChannel('remotelink/mobile_screen_share');
-    final messenger =
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    messenger.setMockMethodCallHandler(shareChannel, (call) async {
-      if (call.method == 'stopShare') return {'ok': true};
-      return null;
-    });
-    addTearDown(() {
-      messenger.setMockMethodCallHandler(shareChannel, null);
-    });
-
     final harness = await pumpApp(tester);
     await connect(tester);
 
@@ -926,6 +968,16 @@ void main() {
       mobileScreenStatus: 'sharing',
       mobileScreenWidth: 431,
       mobileScreenHeight: 960,
+    ));
+    await tester.pump();
+    expect(harness.state.mobileScreenShareStatus,
+        MobileScreenShareStatus.starting);
+
+    harness.shareService.emit(const MobileScreenShareEvent(
+      type: 'status',
+      status: MobileScreenShareStatus.sharing,
+      width: 431,
+      height: 960,
     ));
     await tester.pump();
     expect(
