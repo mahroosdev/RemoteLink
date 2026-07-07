@@ -1,41 +1,57 @@
-# RemoteLink Desktop App
+# RemoteLink Desktop
 
-Premium Electron + React + TypeScript remote control host.
+Electron + React + TypeScript host app for Windows. Runs the local pairing
+server, sends real mouse/keyboard input to the OS, captures the desktop screen
+for phone preview, and displays the phone's screen when sharing is active.
 
-## Tech Stack
+## Tech stack
+
 - **Framework**: Electron
-- **Frontend**: React + TypeScript
-- **Bundler**: Vite
-- **Styling**: Tailwind CSS (integrated via CDN/Classes in this shell)
+- **Frontend**: React + TypeScript, built with Vite
+- **Styling**: plain CSS with custom properties (no CSS framework)
+- **Windows input**: `SendInput` via a persistent PowerShell worker process
 
-## Getting Started
+## Getting started
 
 ### Prerequisites
-- Node.js (v16 or higher)
-- npm or yarn
+- Node.js (v18 or higher recommended)
+- npm
+- Windows, for real mouse/keyboard input and the Windows Firewall repair flow
+  (the UI itself runs cross-platform, but those two features are Windows-only)
 
-### Installation
+### Install
 ```bash
 cd apps/desktop
 npm install
 ```
 
 ### Development
-To run the app in development mode with hot-reloading:
+Runs Vite and Electron together with hot reload:
 ```bash
 npm run electron:dev
 ```
 
 ### Build
-To package the app for production:
+Type-checks and builds the renderer and Electron main/preload bundles:
 ```bash
 npm run build
 ```
 
-## Features (UI Shell)
-- [x] Dark Blue Premium Theme
-- [x] Sidebar Navigation
-- [x] Mock Device Status (Pixel 7 Pro)
-- [x] Mock Pairing Code & Local IP
-- [x] Mock Monitor Selection
-- [x] Activity Log Table
+## What's implemented
+
+- Local pairing: 6-digit code, host approval required, session-bound WebSocket
+  connection with rate-limited pairing attempts.
+- Real mouse, keyboard, shortcuts, and modifier-key input sent to Windows via
+  `SendInput` (with a fallback path if the primary worker is unavailable).
+- Local desktop screen preview streamed to the paired phone.
+- Phone screen viewer: displays the phone's screen when the phone starts
+  sharing (view-only).
+- Local network diagnostics: recommended host IP, UDP discovery listener, and
+  a Windows Firewall status/repair flow scoped to this app's local ports.
+- Activity log with sanitized, public-safe event text (no file paths, raw
+  errors, or protocol internals shown in the UI).
+
+## Not implemented
+
+There's no packaged installer yet — run it from source. No cloud/relay mode,
+no desktop-to-phone control, no Android Accessibility Service, no ADB.

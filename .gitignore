@@ -4,10 +4,14 @@ node_modules/
 
 # Build Outputs
 dist/
+dist-electron/
 build/
 bin/
 *.exe
+*.apk
+*.aab
 *.app
+.tmp/
 
 # Flutter specific
 .dart_tool/
@@ -21,3 +25,7 @@ build/
 .idea/
 *.swp
 *.swo
+
+# Local tool config (personal machine paths, not project config)
+.claude/settings.local.json
+.claude/*.local.json
