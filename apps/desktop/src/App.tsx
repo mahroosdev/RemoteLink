@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import GlobalPairingRequest from './components/GlobalPairingRequest';
+import SplashScreen from './components/SplashScreen';
 
 // Pages
 import OverviewPage from './pages/OverviewPage';
@@ -97,6 +98,8 @@ function App() {
   // Navigation State
   const [activeTab, setActiveTab] = useState('Overview');
   const [settingsTab, setSettingsTab] = useState('General');
+  // Brief startup splash shown once when the app opens.
+  const [showSplash, setShowSplash] = useState(true);
 
   // App State
   const [engineState, setEngineState] = useState<EngineState>(fallbackEngineState);
@@ -395,8 +398,10 @@ function App() {
   };
 
   return (
-    <div className="app-shell">
-      <Sidebar 
+    <>
+      {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+      <div className="app-shell">
+      <Sidebar
         activeTab={activeTab} 
         onTabChange={setActiveTab} 
         engineActive={engineActive} 
@@ -422,10 +427,9 @@ function App() {
           {renderCurrentPage()}
         </main>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 
 export default App;
-
-

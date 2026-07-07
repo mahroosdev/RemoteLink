@@ -3,26 +3,46 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    
-    <!-- White Circular Background for Splash Icon - Radius reduced for better fit -->
+
+    <!-- Startup-only splash mark. Launcher and in-app icons are separate. -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,54m-30,0a30,30 0,1 1,60,0a30,30 0,1 1,-60,0" />
-    
-    <!-- Link Ring Symbol (Black) - SCALED DOWN -->
-    <!-- Thin Circular Ring -->
+        android:pathData="M35,23 L73,23 A12,12 0,0 1,85 35 L85,73 A12,12 0,0 1,73 85 L35,85 A12,12 0,0 1,23 73 L23,35 A12,12 0,0 1,35 23 Z" />
+
+    <!-- Desktop monitor -->
     <path
-        android:strokeColor="#000000"
-        android:strokeWidth="3.5"
-        android:pathData="M54,54m-18,0a18,18 0,1 1,36,0a18,18 0,1 1,-36,0" />
-    
-    <!-- Bold Angled Link/Chevron Marks -->
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#0B0C0F"
+        android:strokeWidth="4.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M33,39 L62,39 A4,4 0,0 1,66 43 L66,60 A4,4 0,0 1,62 64 L33,64 A4,4 0,0 1,29 60 L29,43 A4,4 0,0 1,33 39 Z" />
     <path
-        android:fillColor="#000000"
-        android:pathData="M50,47 L44,54 L50,61 L53,58 L48,54 L53,50 Z" />
-    
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#0B0C0F"
+        android:strokeWidth="4.2"
+        android:strokeLineCap="round"
+        android:pathData="M47.5,64 L47.5,70" />
     <path
-        android:fillColor="#000000"
-        android:pathData="M58,47 L64,54 L58,61 L55,58 L60,54 L55,50 Z" />
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#0B0C0F"
+        android:strokeWidth="4.2"
+        android:strokeLineCap="round"
+        android:pathData="M40,70 L55,70" />
+
+    <!-- Phone overlap knockout, then phone stroke -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M60,50 L75,50 A6,6 0,0 1,81 56 L81,80 A6,6 0,0 1,75 86 L60,86 A6,6 0,0 1,54 80 L54,56 A6,6 0,0 1,60 50 Z" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#0B0C0F"
+        android:strokeWidth="4.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M62,54 L73,54 A4,4 0,0 1,77 58 L77,78 A4,4 0,0 1,73 82 L62,82 A4,4 0,0 1,58 78 L58,58 A4,4 0,0 1,62 54 Z" />
+    <path
+        android:fillColor="#0B0C0F"
+        android:pathData="M67.5,76.5 m-1.4,0 a1.4,1.4 0,1 1,2.8 0 a1.4,1.4 0,1 1,-2.8 0" />
 
 </vector>
