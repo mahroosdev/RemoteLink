@@ -25,7 +25,17 @@ build/
 .idea/
 *.swp
 *.swo
+*.iml
 
-# Local tool config (personal machine paths, not project config)
-.claude/settings.local.json
-.claude/*.local.json
+# AI assistant config
+.claude/
+
+# Flutter metadata
+.metadata
+.flutter-plugins-dependencies
+
+# Backup files
+*_backup.*
+
+# Sample / concept images
+sample images/
