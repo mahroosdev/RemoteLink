@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AppLogo } from './Common';
 
 // Brief intro screen shown while the app opens: the RemoteLink logo with an
 // animated loading line, then a fade-out into the main UI. Purely visual — the
@@ -27,7 +26,7 @@ const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
     >
       <div className="splash-content">
         <div className="splash-logo">
-          <AppLogo size={52} />
+          <img src="/remotelink-app.svg" alt="" />
         </div>
         <h1 className="splash-title">REMOTELINK</h1>
         <p className="splash-subtitle">Pro Utility</p>
