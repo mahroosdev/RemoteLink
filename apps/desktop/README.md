@@ -14,7 +14,7 @@ for phone preview, and displays the phone's screen when sharing is active.
 ## Getting started
 
 ### Prerequisites
-- Node.js (v18 or higher recommended)
+- Node.js 22.12 or newer
 - npm
 - Windows, for real mouse/keyboard input and the Windows Firewall repair flow
   (the UI itself runs cross-platform, but those two features are Windows-only)
@@ -22,7 +22,7 @@ for phone preview, and displays the phone's screen when sharing is active.
 ### Install
 ```bash
 cd apps/desktop
-npm install
+npm ci
 ```
 
 ### Development
@@ -35,6 +35,11 @@ npm run electron:dev
 Type-checks and builds the renderer and Electron main/preload bundles:
 ```bash
 npm run build
+```
+
+### Validate dependencies
+```bash
+npm audit --audit-level=high
 ```
 
 ## What's implemented

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'app.dart';
@@ -7,6 +8,9 @@ import 'models/app_state.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  if (kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
+  }
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
   ]).then((_) {
@@ -54,7 +58,9 @@ class RemoteLinkStartupError extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    error.toString(),
+                    kDebugMode
+                        ? error.toString()
+                        : 'Close RemoteLink and open it again. If the problem continues, reinstall the app.',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                         color: Color(0xFF94A3B8), fontSize: 12, height: 1.4),

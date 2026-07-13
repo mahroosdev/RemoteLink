@@ -142,6 +142,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
     },
     title: 'RemoteLink Pro',
     backgroundColor: '#0b0c0f',
@@ -156,6 +157,8 @@ function createWindow() {
     win?.show()
   })
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  win.webContents.session.setPermissionCheckHandler(() => false)
+  win.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false))
   win.webContents.on('will-navigate', (event, url) => {
     const isAllowedDevUrl = isDev && url.startsWith(devRendererUrl)
     const isAllowedFileUrl = !isDev && url.startsWith('file://')
@@ -163,7 +166,7 @@ function createWindow() {
   })
 
   const targetUrl = isDev ? devRendererUrl : process.env.VITE_DEV_SERVER_URL
-  console.log(`[RemoteLink] Loading renderer from ${targetUrl ?? path.join(process.env.DIST!, 'index.html')}`)
+  if (isDev) console.log(`[RemoteLink] Loading development renderer from ${devRendererUrl}`)
 
   if (targetUrl) {
     win.loadURL(targetUrl)
@@ -280,7 +283,7 @@ app.whenReady().then(() => {
   screen.on('display-added', () => remoteLinkServer.refreshMonitors('Display configuration changed'))
   screen.on('display-removed', () => remoteLinkServer.refreshMonitors('Display configuration changed'))
   screen.on('display-metrics-changed', () => remoteLinkServer.refreshMonitors('Display configuration changed'))
-  console.log(`[RemoteLink] Dev renderer URL pinned to ${devRendererUrl}`)
+  if (isDev) console.log(`[RemoteLink] Development renderer URL pinned to ${devRendererUrl}`)
   createWindow()
 })
 

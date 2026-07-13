@@ -47,6 +47,10 @@ app's own README for build instructions:
 - [apps/desktop/README.md](apps/desktop/README.md)
 - [apps/mobile/README.md](apps/mobile/README.md)
 
+Development requires Node.js 22.12 or newer for the desktop app and Flutter
+3.44.1 with Java 17 for the Android app. The repository's automated checks run
+the desktop build and audit, Flutter analysis and tests, and a debug APK build.
+
 ## Status
 
 Functional and tested locally (pairing, PC control, PC preview, and phone screen
@@ -57,3 +61,6 @@ run it from source for now.
 
 Source is shared publicly for portfolio purposes. All rights reserved — see
 [LICENSE](LICENSE) before using, copying, or redistributing any part of it.
+
+Security issues should be reported privately as described in
+[SECURITY.md](SECURITY.md), not through a public issue.

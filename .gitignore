@@ -1,6 +1,10 @@
 # Dependencies
 node_modules/
 .DS_Store
+.env
+.env.*
+!.env.example
+*.log
 
 # Build Outputs
 dist/
@@ -12,6 +16,13 @@ bin/
 *.aab
 *.app
 .tmp/
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+key.properties
+local.properties
 
 # Flutter specific
 .dart_tool/
@@ -30,8 +41,7 @@ build/
 # AI assistant config
 .claude/
 
-# Flutter metadata
-.metadata
+# Generated Flutter plugin metadata
 .flutter-plugins-dependencies
 
 # Backup files
