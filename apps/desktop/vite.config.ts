@@ -2,7 +2,6 @@ import { defineConfig } from 'vite'
 import path from 'node:path'
 import react from '@vitejs/plugin-react'
 import electron from 'vite-plugin-electron'
-import renderer from 'vite-plugin-electron-renderer'
 
 export default defineConfig({
   server: {
@@ -16,6 +15,9 @@ export default defineConfig({
       {
         // Main-process entry point of the Electron App.
         entry: 'electron/main.ts',
+        onstart(options) {
+          void options.startup(['.'])
+        },
       },
       {
         entry: 'electron/preload.ts',
@@ -26,6 +28,5 @@ export default defineConfig({
         },
       },
     ]),
-    renderer(),
   ],
 })

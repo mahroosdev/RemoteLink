@@ -16,8 +16,8 @@ const MonitorsPage = ({ state, onAction }: any) => {
     try {
       const fetchedSources = await window.electronAPI.getDesktopSources();
       setSources(fetchedSources);
-    } catch (err) {
-      console.error('Failed to get sources:', err);
+    } catch {
+      setSources([]);
     }
   };
 
@@ -55,8 +55,7 @@ const MonitorsPage = ({ state, onAction }: any) => {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
       }
-    } catch (e) {
-      console.error('Stream error:', e);
+    } catch {
       onAction('TOGGLE_PREVIEW');
     }
   };

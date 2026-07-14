@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' http://127.0.0.1:* http://localhost:*;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none';" />
     <link rel="icon" type="image/svg+xml" href="/remotelink-app.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>RemoteLink Pro</title>
@@ -37,15 +37,17 @@
       }
 
       .startup-static-logo {
-        width: 78px;
-        height: 78px;
-        border-radius: 22px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #f5f5f5;
-        color: #0b0c0f;
-        box-shadow: 0 18px 45px rgba(0, 0, 0, 0.32);
+        width: 88px;
+        height: 88px;
+        display: block;
+        filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.36));
+      }
+
+      .startup-static-logo svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
       }
 
       .startup-static-brand {
@@ -113,12 +115,23 @@
       <div class="startup-intro-static" role="status" aria-label="RemoteLink starting">
         <div class="startup-static-panel">
           <div class="startup-static-logo" aria-hidden="true">
-            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="6.5" y="8.5" width="25" height="18" rx="2.5" stroke="currentColor" stroke-width="2.4"/>
-              <path d="M16 31H22" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
-              <path d="M19 27V31" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
-              <rect x="25.5" y="18.5" width="12" height="17" rx="2.5" fill="#f5f5f5" stroke="currentColor" stroke-width="2.4"/>
-              <circle cx="31.5" cy="31.5" r="1.15" fill="currentColor"/>
+            <svg viewBox="0 0 108 108" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="startup-tile" x1="10" y1="6" x2="98" y2="104" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stop-color="#3b414b"/>
+                  <stop offset="0.48" stop-color="#232831"/>
+                  <stop offset="1" stop-color="#0f1318"/>
+                </linearGradient>
+                <radialGradient id="startup-glow" cx="25" cy="13" r="82" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/>
+                  <stop offset="0.48" stop-color="#ffffff" stop-opacity="0.07"/>
+                  <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+                </radialGradient>
+              </defs>
+              <rect x="6" y="5" width="96" height="98" rx="24" fill="url(#startup-tile)"/>
+              <rect x="6" y="5" width="96" height="98" rx="24" fill="url(#startup-glow)"/>
+              <rect x="6.5" y="5.5" width="95" height="97" rx="23.5" stroke="#ffffff" stroke-opacity="0.14"/>
+              <path d="M43 34L25 54L43 74M65 34L83 54L65 74" stroke="#ffffff" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
           <div class="startup-static-brand">

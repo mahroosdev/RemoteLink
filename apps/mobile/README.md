@@ -22,10 +22,20 @@ stops the other, with a clear status message either way.
 
 ## Getting started
 
+Use Flutter 3.44.1 and Java 17.
+
 ```bash
 cd apps/mobile
 flutter pub get
 flutter run
+```
+
+Validate the app with:
+
+```bash
+flutter analyze
+flutter test
+flutter build apk --debug
 ```
 
 Local pairing connects to `ws://HOST_IP:47777` on your LAN, so Android
@@ -40,8 +50,8 @@ adb logcat -c
 adb logcat | findstr RemoteLink
 ```
 
-For Play Store release, create a private upload keystore outside the repo and
-build an AAB with `flutter build appbundle --release`. Do not commit signing
-keys, passwords, or Play Console secrets. Create a public privacy policy URL
-and support page before release, and don't place personal email addresses
-directly in the app UI.
+Release signing is intentionally not configured in this repository. Before a
+Play Store release, create a private upload keystore outside the repo and add a
+local signing configuration. Do not commit signing keys, passwords, or Play
+Console secrets. Create a public privacy policy URL and support page before
+release, and don't place personal email addresses directly in the app UI.

@@ -55,6 +55,7 @@ const INPUT_STALE_MS = 140
 const MOUSE_MOVE_FLUSH_MS = 16
 const MAX_PENDING_INPUT_JOBS = 24
 const INPUT_FAILURE_LOG_THROTTLE_MS = 5000
+const VERBOSE_DIAGNOSTICS = process.env.REMOTELINK_DEBUG === '1'
 const VERBOSE_INPUT_LOGS = process.env.REMOTELINK_DEBUG_INPUT === '1'
 const VERBOSE_PROTOCOL_LOGS = process.env.REMOTELINK_DEBUG_PROTOCOL === '1'
 const NOISY_PROTOCOL_MESSAGE_TYPES = new Set<string>([
@@ -325,7 +326,7 @@ export class RemoteLinkServer {
       this.state.engineActive = false
       this.state.serverStatus = 'error'
       this.state.error = formatServerError(error)
-      console.error('[RemoteLink] Remote Engine failed to start:', error)
+      if (VERBOSE_DIAGNOSTICS) console.error('[RemoteLink] Remote Engine failed to start:', error)
       this.addLog(`Remote Engine failed to start: ${this.state.error}`, 'System', 'Error')
     }
 
@@ -1723,7 +1724,7 @@ export class RemoteLinkServer {
     this.state.heldModifiers = []
     this.clearMobileScreenShare('Remote Engine error')
     this.state.error = formatServerError(error)
-    console.error('[RemoteLink] Remote Engine server error:', error)
+    if (VERBOSE_DIAGNOSTICS) console.error('[RemoteLink] Remote Engine server error:', error)
     this.addLog(`Remote Engine error: ${this.state.error}`, 'System', 'Error')
     this.emit()
   }
@@ -2183,5 +2184,4 @@ function sanitizeCommandLog(payload: CommandLogPayload) {
   const keys = Object.keys(payload.details).filter((key) => key !== 'data').slice(0, 6)
   return keys.length > 0 ? `${command} details=${keys.join(',')}` : command
 }
-
 
