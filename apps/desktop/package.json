@@ -26,13 +26,13 @@
   },
   "dependencies": {
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "react-dom": "^19.2.7",
     "lucide-react": "^0.263.1",
     "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.15",
-    "@types/react-dom": "^18.2.7",
+    "@types/react-dom": "^19.2.3",
     "@types/ws": "^8.5.12",
     "@vitejs/plugin-react": "^6.0.3",
     "electron": "^43.1.0",
