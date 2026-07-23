@@ -19,10 +19,18 @@ bin/
 *.jks
 *.keystore
 *.p12
+*.pfx
 *.pem
 *.key
+*.cer
+*.crt
+*.der
 key.properties
 local.properties
+*.msi
+*.msix
+*.appx
+*.blockmap
 
 # Flutter specific
 .dart_tool/

@@ -36,22 +36,20 @@ Users can find their local IP address via:
 - Tapping a modifier (Ctrl, Alt, Shift) toggles its state.
 - Long-pressing a modifier keeps it active until the next primary key is pressed.
 
-## Roadmap
-- **Phase 5**: Mobile-to-PC input control.
-- **Phase 6A**: PC-to-mobile live preview.
-- **Phase 6B**: Mobile-screen-to-PC view-only sharing.
-- **Future**: Worldwide Remote Mode would require relay server/STUN/TURN and is not implemented.
+## Version 1.0 Scope
+- Mobile-to-PC mouse, keyboard, and shortcut control.
+- PC-to-mobile live screen preview.
+- Mobile-screen-to-PC view-only sharing.
+- Trusted local Wi-Fi or personal hotspot connections only.
 
 Input commands require an approved session and can execute OS input on Windows hosts. Use Release All Keys if Ctrl, Shift, Alt, or Win becomes stuck. Disconnecting the session stops input and streaming. Mobile screen sharing is view-only and requires explicit Android MediaProjection consent.
 
-## Play Store Release Prep
+## Android Release Signing
 
 For Play Store release, create a private upload keystore outside the repo and build an AAB with `flutter build appbundle --release`. Do not commit signing keys, passwords, or Play Console secrets.
-Before Play Store release, create a public privacy policy URL and support page. Do not place private email addresses directly inside the app UI.
+Use the repository privacy and support documents as the source for public policy pages. Do not place private email addresses directly inside the app UI.
 Android local network access is used only for trusted Wi-Fi or hotspot pairing.
 
-## Microsoft Store Prep
+## Windows Release Signing
 
-Windows publishing will need a packaged desktop build later.
-Prepare privacy policy and support page URLs before Microsoft Store submission.
-Do not add personal email addresses inside the app UI.
+Windows publishing requires a trusted code-signing certificate supplied outside this repository. Do not commit certificates, passwords, or signing service credentials.

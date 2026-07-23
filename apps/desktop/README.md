@@ -56,7 +56,8 @@ npm audit --audit-level=high
 - Activity log with sanitized, public-safe event text (no file paths, raw
   errors, or protocol internals shown in the UI).
 
-## Not implemented
+## Version 1.0 boundaries
 
-There's no packaged installer yet — run it from source. No cloud/relay mode,
-no desktop-to-phone control, no Android Accessibility Service, no ADB.
+RemoteLink 1.0 is local-network software. It does not include cloud or internet
+relay, desktop-to-phone control, Android Accessibility Service control, or ADB.
+Release signing credentials are intentionally kept outside this repository.

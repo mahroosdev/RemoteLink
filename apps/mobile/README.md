@@ -50,8 +50,12 @@ adb logcat -c
 adb logcat | findstr RemoteLink
 ```
 
-Release signing is intentionally not configured in this repository. Before a
-Play Store release, create a private upload keystore outside the repo and add a
-local signing configuration. Do not commit signing keys, passwords, or Play
-Console secrets. Create a public privacy policy URL and support page before
-release, and don't place personal email addresses directly in the app UI.
+Release signing is intentionally not configured in this repository. Supply a
+private upload keystore outside the repo and add a local signing configuration
+before publishing. Do not commit signing keys, passwords, or store credentials.
+The repository privacy and support documents are the source for public policy
+pages.
+
+Copy `android/key.properties.example` to `android/key.properties`, replace every
+placeholder with private local values, and keep the real file outside Git. A
+release build remains unsigned when `key.properties` is absent.

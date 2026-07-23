@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, HelpCircle, ShieldCheck, Globe, Zap, Wifi, AlertTriangle, Keyboard } from 'lucide-react';
+import { BookOpen, HelpCircle, ShieldCheck, Zap, Wifi, AlertTriangle, Keyboard } from 'lucide-react';
 import { Card } from '../components/Common';
 
 const ManualPage = () => (
@@ -90,15 +90,15 @@ const ManualPage = () => (
               </div>
               <div>
                  <h4 style={{ fontSize: '13px', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}><Keyboard size={14} color="var(--accent-amber)" /> Stuck Modifiers</h4>
-                 <p className="text-muted" style={{ fontSize: '12px' }}>If keys remain "held", go to Settings &gt; Shortcut Keys and click "Release All Virtual Keys", or use Release All Keys on Overview.</p>
+                 <p className="text-muted" style={{ fontSize: '12px' }}>If keys remain "held", go to Settings &gt; Safety and click "Release All", or use Release All Keys on Overview.</p>
               </div>
            </div>
         </Card>
 
         <div style={{ marginTop: '24px', padding: '24px', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '16px', border: '1px solid rgba(59, 130, 246, 0.1)' }}>
-           <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '8px' }}><Globe size={16} /> Worldwide Access</h4>
+           <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '8px' }}><Wifi size={16} /> Local Network Only</h4>
            <p className="text-muted" style={{ fontSize: '12px', margin: 0 }}>
-              Worldwide remote access is not implemented in this version. Local network pairing is the only supported mode.
+              RemoteLink 1.0 is designed for trusted Wi-Fi or a personal hotspot. It does not use a cloud relay.
            </p>
         </div>
      </div>

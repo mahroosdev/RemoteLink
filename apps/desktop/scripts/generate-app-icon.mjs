@@ -242,8 +242,6 @@ for (const { size, bytes } of pngs) {
   fs.writeFileSync(path.join(iconsDir, `remotelink-app-${size}.png`), bytes);
 }
 
-fs.writeFileSync(path.join(publicDir, 'remotelink-app.png'), pngs.find(({ size }) => size === 512).bytes);
-fs.writeFileSync(path.join(publicDir, 'remotelink-app-256.png'), pngs.find(({ size }) => size === 256).bytes);
 
 const icoPngs = pngs.filter(({ size }) => size <= 256);
 

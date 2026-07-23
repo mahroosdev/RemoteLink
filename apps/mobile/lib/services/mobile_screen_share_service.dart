@@ -4,6 +4,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+const publicMobileScreenShareErrorMessage =
+    'Phone screen sharing could not continue. Please try again.';
+
 enum MobileScreenShareStatus {
   off,
   stopped,
@@ -206,14 +209,18 @@ class MobileScreenShareService {
     final type = json['type']?.toString();
     switch (type) {
       case 'status':
+        final status = _parseStatus(json['status']?.toString());
+        final rawMessage = json['message']?.toString();
         if (kDebugMode) {
           debugPrint(
-              '[RemoteLink] Native mobile share status: ${json['status']} ${json['message'] ?? ''}');
+              '[RemoteLink] Native mobile share status: ${json['status']} ${rawMessage ?? ''}');
         }
         _emit(MobileScreenShareEvent(
           type: 'status',
-          status: _parseStatus(json['status']?.toString()),
-          message: json['message']?.toString(),
+          status: status,
+          message: status == MobileScreenShareStatus.error
+              ? publicMobileScreenShareErrorMessage
+              : rawMessage,
           width: MobileScreenShareFrame._readInt(json['width']),
           height: MobileScreenShareFrame._readInt(json['height']),
           fps: MobileScreenShareFrame._readInt(json['fps']),

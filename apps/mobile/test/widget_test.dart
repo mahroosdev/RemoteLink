@@ -992,6 +992,32 @@ void main() {
         harness.state.mobileScreenShareStatus, MobileScreenShareStatus.stopped);
   });
 
+  testWidgets('phone sharing errors hide native exception details',
+      (tester) async {
+    final harness = await pumpApp(tester);
+    await connect(tester);
+
+    await tester.tap(find.byIcon(Icons.settings_remote));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Phone'));
+    await tester.pumpAndSettle();
+
+    harness.shareService.emit(const MobileScreenShareEvent(
+      type: 'status',
+      status: MobileScreenShareStatus.error,
+      message:
+          r'Screen capture request failed: SecurityException at D:\PrivateProfile',
+    ));
+    await tester.pump();
+
+    expect(
+        harness.state.mobileScreenShareStatus, MobileScreenShareStatus.error);
+    expect(harness.state.mobileScreenShareError,
+        publicMobileScreenShareErrorMessage);
+    expect(find.textContaining('SecurityException'), findsNothing);
+    expect(find.textContaining(r'D:\PrivateProfile'), findsNothing);
+  });
+
   testWidgets('theme selector switches the real app theme and persists',
       (tester) async {
     await pumpApp(tester);

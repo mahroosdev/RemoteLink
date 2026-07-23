@@ -64,6 +64,31 @@ const fallbackFirewallStatus: FirewallStatus = {
   checkedAt: '',
 };
 
+function loadSettings(): AppSettings {
+  const saved = localStorage.getItem('remotelink_settings');
+  if (!saved) return defaultSettings;
+
+  try {
+    const parsed = JSON.parse(saved) as Partial<AppSettings>;
+    const requestedTheme = parsed.general?.theme;
+    const theme = requestedTheme === 'Professional Dark' || requestedTheme === 'Pure Black' || requestedTheme === 'Light'
+      ? requestedTheme
+      : defaultSettings.general.theme;
+    return {
+      general: { ...defaultSettings.general, ...(parsed.general ?? {}), theme },
+      connection: { ...defaultSettings.connection, ...(parsed.connection ?? {}) },
+      controls: { ...defaultSettings.controls, ...(parsed.controls ?? {}) },
+      shortcuts: { ...defaultSettings.shortcuts, ...(parsed.shortcuts ?? {}) },
+      monitors: { ...defaultSettings.monitors, ...(parsed.monitors ?? {}) },
+      performance: { ...defaultSettings.performance, ...(parsed.performance ?? {}) },
+      security: { ...defaultSettings.security, ...(parsed.security ?? {}) },
+    };
+  } catch {
+    localStorage.removeItem('remotelink_settings');
+    return defaultSettings;
+  }
+}
+
 function normalizeEngineState(state: Partial<EngineState> | null | undefined): EngineState {
   return {
     ...fallbackEngineState,
@@ -97,7 +122,7 @@ function normalizeEngineState(state: Partial<EngineState> | null | undefined): E
 function App() {
   // Navigation State
   const [activeTab, setActiveTab] = useState('Overview');
-  const [settingsTab, setSettingsTab] = useState('General');
+  const [settingsTab, setSettingsTab] = useState('Appearance');
   // Brief startup splash shown once when the app opens.
   const [showSplash, setShowSplash] = useState(true);
 
@@ -115,10 +140,7 @@ function App() {
   const [mobileFrame, setMobileFrame] = useState<MobileScreenFrame | null>(null);
   const activeTabRef = useRef(activeTab);
 
-  const [settings, setSettings] = useState<AppSettings>(() => {
-    const saved = localStorage.getItem('remotelink_settings');
-    return saved ? JSON.parse(saved) : defaultSettings;
-  });
+  const [settings, setSettings] = useState<AppSettings>(loadSettings);
 
   // Theme Application
   useEffect(() => {

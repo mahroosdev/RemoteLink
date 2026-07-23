@@ -195,7 +195,6 @@ export class RemoteLinkServer {
   private mouseMoveTimer: ReturnType<typeof setTimeout> | null = null
   private mouseMoveInFlight = false
   private staleInputDropLoggedAt = 0
-  private inputLatencyWarnedAt = 0
   private streamTimer: ReturnType<typeof setInterval> | null = null
   private streamInFlight = false
   private streamFrameCount = 0
@@ -595,11 +594,8 @@ export class RemoteLinkServer {
     kind: string,
     metrics: { mobileToDesktopMs?: number | null; queueAgeMs?: number; executorMs?: number },
   ) {
+    if (!VERBOSE_INPUT_LOGS) return
     const slow = (metrics.queueAgeMs ?? 0) > INPUT_STALE_MS || (metrics.executorMs ?? 0) > 100
-    if (!VERBOSE_INPUT_LOGS && !slow) return
-    const now = Date.now()
-    if (!VERBOSE_INPUT_LOGS && now - this.inputLatencyWarnedAt < 2000) return
-    if (slow) this.inputLatencyWarnedAt = now
     const parts = [
       `kind=${kind}`,
       metrics.mobileToDesktopMs == null ? null : `mobileToDesktop=${Math.round(metrics.mobileToDesktopMs)}ms`,
@@ -734,7 +730,7 @@ export class RemoteLinkServer {
       ws.close()
       return
     }
-    this.addLog(`Incoming mobile connection from ${ip}`, 'Pairing', 'Info')
+    this.addLog(`Incoming mobile connection from ${redactIp(ip)}`, 'Pairing', 'Info')
 
     ws.on('message', (data) => {
       if (messageByteLength(data) > MAX_WS_MESSAGE_BYTES) {
@@ -1968,7 +1964,7 @@ function formatServerError(error: unknown) {
   if (typeof error === 'object' && error && 'code' in error && (error as { code?: string }).code === 'EADDRINUSE') {
     return 'Port 47777 is already in use. Close the other RemoteLink instance.'
   }
-  return error instanceof Error ? error.message : String(error)
+  return 'Remote Engine could not start. Check local access and try again.'
 }
 
 function clampNumber(value: unknown, min: number, max: number) {
@@ -2053,7 +2049,11 @@ function normalizeMobileScreenStatusPayload(
   const normalizedLastFrameAt = payload?.lastFrameAt === undefined ? undefined : normalizeIsoTimestamp(payload.lastFrameAt)
   if (payload?.lastFrameAt !== undefined && !normalizedLastFrameAt) return null
   const lastFrameAt = normalizedLastFrameAt ?? undefined
-  const message = payload?.message === undefined ? undefined : truncate(String(payload.message), 160)
+  const message = status === 'error'
+    ? 'Phone screen sharing could not continue. Please try again.'
+    : payload?.message === undefined
+      ? undefined
+      : truncate(String(payload.message), 160)
   return { status: status as MobileScreenStatusPayload['status'], message, width, height, fps, lastFrameAt }
 }
 
@@ -2155,7 +2155,17 @@ function truncate(value: string, maxLength: number) {
 }
 
 function sanitizeLogText(value: string, maxLength: number) {
-  return truncate(value.replace(/\b\d{6}\b/g, '[pairing-code]').replace(/\s+/g, ' ').trim(), maxLength)
+  return truncate(
+    value
+      .replace(/[A-Z]:\\[^\r\n]*/gi, '[local-path]')
+      .replace(/\bwss?:\/\/[^\s,)]+/gi, 'local connection')
+      .replace(/\b(?:powershell|cmd)(?:\.exe)?\b[^\r\n]*/gi, 'local system command')
+      .replace(/\b\d{6}\b/g, '[pairing-code]')
+      .replace(/\b(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d{1,3}\b/g, '$1.x')
+      .replace(/\s+/g, ' ')
+      .trim(),
+    maxLength,
+  )
 }
 
 function redactIp(ip: string) {
@@ -2169,8 +2179,8 @@ function redactDeviceId(value: unknown) {
   return `${value.slice(0, 4)}...${value.slice(-4)}`
 }
 
-function protocolLog(message: string, verbose = false) {
-  if (verbose && !VERBOSE_PROTOCOL_LOGS) return
+function protocolLog(message: string, _verbose = false) {
+  if (!VERBOSE_PROTOCOL_LOGS) return
   console.log(`[RemoteLink][pairing] ${message}`)
 }
 

@@ -1010,7 +1010,7 @@ class AppState extends ChangeNotifier {
         if (_ignoreMobileScreenShareActiveEvents &&
             incomingStatus == MobileScreenShareStatus.error) {
           addLog(
-            'Ignoring native share error after local stop: ${event.message ?? 'no details'}',
+            'Ignoring native share error after local stop',
             updateTicker: false,
           );
           break;
@@ -1038,7 +1038,7 @@ class AppState extends ChangeNotifier {
         if (incomingStatus == MobileScreenShareStatus.error) {
           _setMobileScreenShareStatus(
             MobileScreenShareStatus.error,
-            errorMessage: event.message ?? 'Mobile screen share error',
+            errorMessage: publicMobileScreenShareErrorMessage,
           );
         } else if (!(previousStatus == MobileScreenShareStatus.error &&
             (_mobileScreenShareStatus == MobileScreenShareStatus.stopped ||
@@ -1054,7 +1054,10 @@ class AppState extends ChangeNotifier {
           keepFailureVisible
               ? MobileScreenShareStatus.error.name
               : _mobileScreenShareStatus.name,
-          message: keepFailureVisible ? _mobileScreenShareError : event.message,
+          message: keepFailureVisible ||
+                  _mobileScreenShareStatus == MobileScreenShareStatus.error
+              ? _mobileScreenShareError
+              : event.message,
           width: event.width ?? _latestMobileScreenFrameWidth,
           height: event.height ?? _latestMobileScreenFrameHeight,
           fps: event.fps,
@@ -1077,7 +1080,8 @@ class AppState extends ChangeNotifier {
           addLog(event.message ?? 'Mobile screen sharing stopped',
               updateTicker: false);
         } else if (_mobileScreenShareStatus == MobileScreenShareStatus.error) {
-          addLog(event.message ?? 'Mobile screen sharing error');
+          addLog(
+              _mobileScreenShareError ?? publicMobileScreenShareErrorMessage);
         }
         notifyListeners();
         break;

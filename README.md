@@ -51,11 +51,12 @@ Development requires Node.js 22.12 or newer for the desktop app and Flutter
 3.44.1 with Java 17 for the Android app. The repository's automated checks run
 the desktop build and audit, Flutter analysis and tests, and a debug APK build.
 
-## Status
+## Release status
 
-Functional and tested locally (pairing, PC control, PC preview, and phone screen
-sharing all work end to end). There's no signed release build or installer yet —
-run it from source for now.
+The source is versioned for RemoteLink 1.0.0. Automated desktop and Android
+checks run for every change. Public binary distribution additionally requires
+final real-device regression and private release signing; signing material is
+never stored in this repository.
 
 ## License
 
@@ -64,3 +65,8 @@ Source is shared publicly for portfolio purposes. All rights reserved — see
 
 Security issues should be reported privately as described in
 [SECURITY.md](SECURITY.md), not through a public issue.
+
+Data handling is described in [PRIVACY.md](PRIVACY.md). General help and
+non-security problem reports are covered by [SUPPORT.md](SUPPORT.md).
+The evidence required before publishing binaries is listed in
+[docs/release-checklist.md](docs/release-checklist.md).

@@ -1,0 +1,6 @@
+# Copy this file to key.properties and keep the real file private.
+# Use an absolute path or a path relative to apps/mobile/android/app.
+storeFile=C:\\path\\outside\\the\\repository\\remotelink-upload.jks
+storePassword=replace-with-private-password
+keyAlias=remotelink-upload
+keyPassword=replace-with-private-password
